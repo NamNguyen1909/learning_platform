@@ -4,7 +4,7 @@ from .models import User, Course, Document, CourseProgress, Tag, Question, Answe
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'role', 'phone', 'avatar', 'is_active', 'is_staff', 'created_at', 'updated_at']
+        fields = ['id', 'username', 'email', 'role', 'phone', 'avatar', 'is_active', 'created_at', 'updated_at']
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -18,7 +18,7 @@ class CourseSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Course
-        fields = ['id', 'title', 'description', 'image', 'teacher', 'center', 'start_date', 'end_date', 'is_active', 'tags', 'created_at', 'updated_at']
+        fields = ['id', 'title', 'description', 'image', 'teacher', 'price', 'start_date', 'end_date', 'is_active', 'tags', 'created_at', 'updated_at']
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -41,7 +41,7 @@ class CourseProgressSerializer(serializers.ModelSerializer):
     course = CourseSerializer(read_only=True)
     class Meta:
         model = CourseProgress
-        fields = ['id', 'student', 'course', 'enrolled_at', 'is_paid', 'payment', 'start_time', 'completed_at', 'progress', 'is_completed']
+        fields = ['id', 'student', 'course', 'enrolled_at', 'completed_at', 'progress', 'is_completed']
 
 class TagSerializer(serializers.ModelSerializer):
     class Meta:
@@ -63,9 +63,10 @@ class AnswerSerializer(serializers.ModelSerializer):
 
 class PaymentSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
+    course = CourseSerializer(read_only=True)
     class Meta:
         model = Payment
-        fields = ['id', 'user', 'amount', 'payment_method', 'is_paid', 'paid_at', 'transaction_id', 'created_at']
+        fields = ['id', 'user', 'course', 'amount', 'payment_method', 'is_paid', 'paid_at', 'transaction_id', 'created_at']
 
 class ReviewSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)

@@ -40,7 +40,6 @@ class User(AbstractBaseUser, PermissionsMixin):
 	phone = models.CharField(max_length=15, null=True, blank=True)
 	avatar = CloudinaryField('avatar', folder='user_avatars', null=True, blank=True)
 	is_active = models.BooleanField(default=True)
-	is_staff = models.BooleanField(default=False)
 	created_at = models.DateTimeField(auto_now_add=True)
 	updated_at = models.DateTimeField(auto_now=True)
 
@@ -65,7 +64,7 @@ class Course(models.Model):
 	description = models.TextField()
 	image = CloudinaryField('image', folder='course_images', null=True, blank=True)
 	teacher = models.ForeignKey('User', on_delete=models.CASCADE, related_name='courses', limit_choices_to={'role': UserRole.TEACHER})
-	center = models.ForeignKey('User', on_delete=models.SET_NULL, null=True, blank=True, related_name='center_courses', limit_choices_to={'role': UserRole.CENTER})
+	price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], default=0)
 	start_date = models.DateField()
 	end_date = models.DateField()
 	is_active = models.BooleanField(default=True)
@@ -81,9 +80,6 @@ class CourseProgress(models.Model):
 	student = models.ForeignKey(User, on_delete=models.CASCADE, related_name='course_progress', limit_choices_to={'role': UserRole.STUDENT})
 	course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='course_progress')
 	enrolled_at = models.DateTimeField(auto_now_add=True)
-	is_paid = models.BooleanField(default=False)
-	payment = models.ForeignKey('Payment', on_delete=models.SET_NULL, null=True, blank=True, related_name='course_progress')
-	start_time = models.DateTimeField(null=True, blank=True)
 	completed_at = models.DateTimeField(null=True, blank=True)
 	progress = models.FloatField(default=0, validators=[MinValueValidator(0), MaxValueValidator(100)])  # % hoàn thành
 	is_completed = models.BooleanField(default=False)
@@ -134,6 +130,7 @@ class Payment(models.Model):
 		('vnpay', 'VNPay'),
 	)
 	user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='payments')
+	course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='payments')
 	amount = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
 	payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES)
 	is_paid = models.BooleanField(default=False)
