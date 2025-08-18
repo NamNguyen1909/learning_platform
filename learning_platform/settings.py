@@ -18,7 +18,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Initialise environment variables
 env = environ.Env()
-environ.Env.read_env()
+environ.Env.read_env(env_file=BASE_DIR / ".env")
 
 # Cloudinary settings
 CLOUDINARY = {
@@ -32,6 +32,8 @@ CLOUDINARY = {
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = env("SECRET_KEY")
+
+AUTH_USER_MODEL = 'learningapi.User'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env("DEBUG", default="False") == "True"
@@ -49,9 +51,55 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'corsheaders',
-    'learning_platform.apps.LearningapiConfig',
+    'learningapi.apps.LearningapiConfig',
     'drf_yasg',
+    'oauth2_provider',
+    'social_django',
+    'rest_framework',
 ]
+# REST Framework & OAuth2/JWT config
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'oauth2_provider.contrib.rest_framework.OAuth2Authentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+}
+
+# SimpleJWT config (có thể tùy chỉnh thêm)
+from datetime import timedelta
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'AUTH_HEADER_TYPES': ('Bearer',),
+}
+
+# Social Auth config (Google, GitHub...)
+
+AUTHENTICATION_BACKENDS = (
+    'social_core.backends.google.GoogleOAuth2',
+    'social_core.backends.github.GithubOAuth2',
+    'social_core.backends.facebook.FacebookOAuth2',
+    'django.contrib.auth.backends.ModelBackend',
+)
+# vào http://localhost:8000/auth/login/google-oauth2/ để test
+# https://myaccount.google.com/permissions
+SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = env('SOCIAL_AUTH_GOOGLE_OAUTH2_KEY', default='')
+SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = env('SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET', default='')
+# vào http://localhost:8000/auth/login/github/ để test
+# https://github.com/settings/applications
+SOCIAL_AUTH_GITHUB_KEY = env('SOCIAL_AUTH_GITHUB_KEY', default='')
+SOCIAL_AUTH_GITHUB_SECRET = env('SOCIAL_AUTH_GITHUB_SECRET', default='')
+SOCIAL_AUTH_GITHUB_SCOPE = ['user:email']
+SOCIAL_AUTH_GITHUB_PROFILE_EXTRA_PARAMS = {'scope': 'user:email'}
+# cần hồ sơ doanh nghiệp để tạo app => chưa thành công 
+SOCIAL_AUTH_FACEBOOK_KEY = env('SOCIAL_AUTH_FACEBOOK_KEY', default='')
+SOCIAL_AUTH_FACEBOOK_SECRET = env('SOCIAL_AUTH_FACEBOOK_SECRET', default='')
+
+LOGIN_URL = '/login/'
+LOGIN_REDIRECT_URL = '/'
 ## CORS settings
 CORS_ALLOW_ALL_ORIGINS = True  # Cho phép tất cả các domain, có thể thay bằng CORS_ALLOWED_ORIGINS = ['http://localhost:5173'] nếu chỉ cho phép frontend
 
@@ -148,3 +196,23 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# Bắt buộc email khi tạo user (cho mọi provider) 
+# Nếu provider không trả về email, social-auth sẽ yêu cầu user nhập email sau khi đăng nhập lần đầu.
+SOCIAL_AUTH_PIPELINE = (
+    'social_core.pipeline.social_auth.social_details',
+    'social_core.pipeline.social_auth.social_uid',
+    'social_core.pipeline.social_auth.auth_allowed',
+    'social_core.pipeline.social_auth.social_user',
+    'social_core.pipeline.user.get_username',
+    'social_core.pipeline.mail.mail_validation',  # gửi email xác thực nếu cần
+    'social_core.pipeline.user.create_user',
+    'social_core.pipeline.social_auth.associate_user',
+    'social_core.pipeline.social_auth.load_extra_data',
+    'social_core.pipeline.user.user_details',
+)
+SOCIAL_AUTH_FIELDS_STORED_IN_SESSION = ['email']
+SOCIAL_AUTH_EMAIL_REQUIRED = True
+SOCIAL_AUTH_EMAIL_VALIDATION_FUNCTION = 'django.core.mail.send_mail'
+SOCIAL_AUTH_EMAIL_VALIDATION_URL = '/email-validation-sent/'
