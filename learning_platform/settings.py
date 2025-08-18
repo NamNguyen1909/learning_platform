@@ -206,7 +206,7 @@ SOCIAL_AUTH_PIPELINE = (
     'social_core.pipeline.social_auth.auth_allowed',
     'social_core.pipeline.social_auth.social_user',
     'social_core.pipeline.user.get_username',
-    'social_core.pipeline.mail.mail_validation',  # gửi email xác thực nếu cần
+    'social_core.pipeline.mail.mail_validation',
     'social_core.pipeline.user.create_user',
     'social_core.pipeline.social_auth.associate_user',
     'social_core.pipeline.social_auth.load_extra_data',
@@ -216,3 +216,12 @@ SOCIAL_AUTH_FIELDS_STORED_IN_SESSION = ['email']
 SOCIAL_AUTH_EMAIL_REQUIRED = True
 SOCIAL_AUTH_EMAIL_VALIDATION_FUNCTION = 'django.core.mail.send_mail'
 SOCIAL_AUTH_EMAIL_VALIDATION_URL = '/email-validation-sent/'
+
+# Truy cập đường dẫn đăng nhập
+# Google: http://localhost:8000/auth/login/google-oauth2/
+# GitHub: http://localhost:8000/auth/login/github/
+# Facebook: http://localhost:8000/auth/login/facebook/
+# Redirect URI là
+# http://localhost:8000/auth/complete/google-oauth2/
+# http://localhost:8000/auth/complete/github/
+# http://localhost:8000/auth/complete/facebook/
