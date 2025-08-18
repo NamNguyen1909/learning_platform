@@ -20,6 +20,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
 environ.Env.read_env()
 
+# Cloudinary settings
+CLOUDINARY = {
+    'cloud_name': env('CLOUDINARY_CLOUD_NAME', default=''),
+    'api_key': env('CLOUDINARY_API_KEY', default=''),
+    'api_secret': env('CLOUDINARY_API_SECRET', default=''),
+}
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
@@ -43,6 +50,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'corsheaders',
     'learning_platform.apps.LearningapiConfig',
+    'drf_yasg',
 ]
 ## CORS settings
 CORS_ALLOW_ALL_ORIGINS = True  # Cho phép tất cả các domain, có thể thay bằng CORS_ALLOWED_ORIGINS = ['http://localhost:5173'] nếu chỉ cho phép frontend
