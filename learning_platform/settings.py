@@ -41,8 +41,18 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'corsheaders',
     'learning_platform.apps.LearningapiConfig',
 ]
+## CORS settings
+CORS_ALLOW_ALL_ORIGINS = True  # Cho phép tất cả các domain, có thể thay bằng CORS_ALLOWED_ORIGINS = ['http://localhost:5173'] nếu chỉ cho phép frontend
+
+## Static & Media files
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'mediafiles'
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
