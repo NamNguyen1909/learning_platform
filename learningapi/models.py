@@ -27,8 +27,8 @@ class UserManager(BaseUserManager):
 # User Roles
 class UserRole(models.TextChoices):
 	ADMIN = 'admin', 'Admin'
-	STUDENT = 'student', 'Student'
-	TEACHER = 'teacher', 'Teacher'
+	LEARNER = 'learner', 'Learner'
+	INSTRUCTOR = 'instructor', 'Instructor'
 	CENTER = 'center', 'Training Center'
 
 
@@ -36,7 +36,7 @@ class UserRole(models.TextChoices):
 class User(AbstractBaseUser, PermissionsMixin):
 	username = models.CharField(max_length=255, unique=True, db_index=True)
 	email = models.EmailField(max_length=255, unique=True, db_index=True)
-	role = models.CharField(max_length=20, choices=UserRole.choices, default=UserRole.STUDENT)
+	role = models.CharField(max_length=20, choices=UserRole.choices, default=UserRole.LEARNER)
 	phone = models.CharField(max_length=15, null=True, blank=True)
 	avatar = CloudinaryField('avatar', folder='user_avatars', null=True, blank=True)
 	is_active = models.BooleanField(default=True)
@@ -63,7 +63,7 @@ class Course(models.Model):
 	title = models.CharField(max_length=255, db_index=True)
 	description = models.TextField()
 	image = CloudinaryField('image', folder='course_images', null=True, blank=True)
-	teacher = models.ForeignKey('User', on_delete=models.CASCADE, related_name='courses', limit_choices_to={'role': UserRole.TEACHER})
+	instructor = models.ForeignKey('User', on_delete=models.CASCADE, related_name='courses', limit_choices_to={'role': UserRole.INSTRUCTOR})
 	price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], default=0)
 	start_date = models.DateField()
 	end_date = models.DateField()
@@ -77,7 +77,7 @@ class Course(models.Model):
 
 # CourseProgress Model 
 class CourseProgress(models.Model):
-	student = models.ForeignKey(User, on_delete=models.CASCADE, related_name='course_progress', limit_choices_to={'role': UserRole.STUDENT})
+	learner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='course_progress', limit_choices_to={'role': UserRole.LEARNER})
 	course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='course_progress')
 	enrolled_at = models.DateTimeField(auto_now_add=True)
 	completed_at = models.DateTimeField(null=True, blank=True)
@@ -85,10 +85,10 @@ class CourseProgress(models.Model):
 	is_completed = models.BooleanField(default=False)
 
 	class Meta:
-		unique_together = ('student', 'course')
+		unique_together = ('learner', 'course')
 
 	def __str__(self):
-		return f"{self.student} - {self.course}"
+		return f"{self.learner} - {self.course}"
 
 
 # Document Model
@@ -179,4 +179,15 @@ class UserNotification(models.Model):
 	class Meta:
 		unique_together = ('user', 'notification')
 
+# Note Model
+class Note(models.Model):
+	user = models.ForeignKey('User', on_delete=models.CASCADE, related_name='notes')
+	course = models.ForeignKey('Course', on_delete=models.SET_NULL, related_name='notes')
+	document = models.ForeignKey('Document', on_delete=models.SET_NULL, related_name='notes', null=True, blank=True)
+	video_id = models.CharField(max_length=100)  # id video YouTube
+	timestamp = models.FloatField()  # thời gian (giây)
+	content = models.TextField()
+	created_at = models.DateTimeField(auto_now_add=True)
 
+	def __str__(self):
+		return f"Note by {self.user} at {self.timestamp}s"

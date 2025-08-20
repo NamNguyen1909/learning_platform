@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, Course, Document, CourseProgress, Tag, Question, Answer, Payment, Review, Notification, UserNotification
+from .models import User, Course, Document, CourseProgress, Tag, Question, Answer, Payment, Review, Notification, UserNotification, Note
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -86,3 +86,11 @@ class UserNotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserNotification
         fields = ['id', 'user', 'notification', 'is_read', 'read_at', 'created_at']
+
+class NoteSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+    course = CourseSerializer(read_only=True)
+    document = DocumentSerializer(read_only=True)
+    class Meta:
+        model = Note
+        fields = ['id', 'user', 'course', 'document', 'video_id', 'timestamp', 'content', 'created_at']
