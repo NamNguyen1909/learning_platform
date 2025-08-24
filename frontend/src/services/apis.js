@@ -1,7 +1,10 @@
+import { GitHub } from '@mui/icons-material';
 import axios from 'axios';
 
+const BE_ROOT = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000').replace(/\/api\/?$/, '');
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api', //BE URL
+  baseURL: BE_ROOT,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -83,10 +86,15 @@ export const endpoints = {
     logout: '/auth/token/blacklist/',
     userInfo: '/auth/user/',
   },
+  social_auth: {
+    'google-oauth2': `${BE_ROOT}/auth/login/google-oauth2/`,
+    'facebook': `${BE_ROOT}/auth/login/facebook/`,
+    'github': `${BE_ROOT}/auth/login/github/`,
+  },
   user:{
-    list: '/users/',
-    create: '/users/',
-    update: (id) => `/users/${id}/`,
+    list: '/api/users/',
+    create: '/api/users/',
+    update: (id) => `/api/users/${id}/`,
   }
 
 }

@@ -21,6 +21,7 @@ from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 from rest_framework import permissions
 from django.urls import re_path
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView, TokenBlacklistView
 
 
 # Tạo schema view cho tài liệu API (Swagger/Redoc)
@@ -50,6 +51,14 @@ urlpatterns = [
     # Authentication
     path('o/', include('oauth2_provider.urls', namespace='oauth2_provider')),
     path('auth/', include('social_django.urls', namespace='social')),
+
+    path('auth/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('auth/token/blacklist/', TokenBlacklistView.as_view(), name='token_blacklist'),
+    
     # Demo API xác thực JWT/OAuth2
     path('api/demo/', demo_user_info, name='demo-user-info'),
+
+    #Đăng nhập bên thứ 3 
+    path('auth/', include('social_django.urls', namespace='social')),
 ]

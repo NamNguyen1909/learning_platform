@@ -1,7 +1,7 @@
 import api, { endpoints } from './apis';
 
 // Authentication utilities
-const auth = {
+const authUtils = {
   _userCache: null, // Simple cache cho user data
   _cacheExpiry: 0,  // Cache expiry timestamp
   
@@ -130,4 +130,4 @@ const auth = {
   },
 };
 
-export default auth;
+export default authUtils;

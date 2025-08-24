@@ -143,7 +143,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
-
+.env.*
 # Spyder project settings
 .spyderproject
 .spyproject
@@ -205,3 +205,6 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+#github copilot
+.github/copilot-instructions.md

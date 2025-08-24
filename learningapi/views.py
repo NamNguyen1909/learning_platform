@@ -42,7 +42,11 @@ class UserViewSet(viewsets.ViewSet,generics.CreateAPIView,generics.UpdateAPIView
 		role = request.data.get("role")
 		if role not in ["learner", "instructor"]:
 			return Response({"error": "Invalid role. Only 'learner' and 'instructor' roles are allowed."}, status=400)
-		return super().create(request, *args, **kwargs)
+		password = request.data.pop('password')
+		user = User(**request.data)
+		user.set_password(password)
+		user.save()
+		return Response({"success": "User created successfully."}, status=201)
 
 	@action(detail=False, methods=['get'])
 	def current_user(self, request):
