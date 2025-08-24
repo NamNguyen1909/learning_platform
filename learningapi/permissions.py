@@ -17,3 +17,6 @@ class IsCenter(permissions.IsAuthenticated):
     def has_permission(self, request, view):
         return super().has_permission(request, view) and request.user.role == 'center'
 
+class CanCURDCourse(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return super().has_permission(request, view) and request.user.role in ['admin', 'center', 'instructor']

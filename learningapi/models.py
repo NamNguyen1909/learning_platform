@@ -182,7 +182,7 @@ class UserNotification(models.Model):
 # Note Model
 class Note(models.Model):
 	user = models.ForeignKey('User', on_delete=models.CASCADE, related_name='notes')
-	course = models.ForeignKey('Course', on_delete=models.SET_NULL, related_name='notes')
+	course = models.ForeignKey('Course', on_delete=models.SET_NULL, related_name='notes',null=True, blank=True)
 	document = models.ForeignKey('Document', on_delete=models.SET_NULL, related_name='notes', null=True, blank=True)
 	video_id = models.CharField(max_length=100)  # id video YouTube
 	timestamp = models.FloatField()  # thời gian (giây)

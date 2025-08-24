@@ -64,7 +64,7 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated',
+        # 'rest_framework.permissions.IsAuthenticated', #Mở lại khi cần
     ],
 }
 
@@ -102,6 +102,13 @@ LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/'
 ## CORS settings
 CORS_ALLOW_ALL_ORIGINS = True  # Cho phép tất cả các domain, có thể thay bằng CORS_ALLOWED_ORIGINS = ['http://localhost:5173'] nếu chỉ cho phép frontend
+
+
+
+
+
+
+
 
 ## Static & Media files
 STATIC_URL = '/static/'
