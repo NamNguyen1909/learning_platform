@@ -1,5 +1,3 @@
-import { useState } from 'react'
-import './App.css'
 import { Box } from '@mui/material'
 import { Route } from 'react-router-dom'
 import { BrowserRouter as Router, Routes } from 'react-router-dom';
@@ -8,25 +6,21 @@ import { ThemeProvider } from '@mui/material/styles';
 import { CssBaseline } from '@mui/material';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import Header from './components/Header';
+import Footer from './components/Footer';
 
 const AppContent = () => {
-
   return (
-    <Box sx={{
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: '100vh',
-      bgcolor: 'background.default',
-    }}>
-      <Box sx={{ flex: 1 }}>
+  <Box sx={{ minHeight: '100vh', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
+      <Header />
+      <Box sx={{ flex: 1, width: '100%' }}>
         <Routes>
           {/* <Route path="/" element={<Home />} /> */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
         </Routes>
       </Box>
+      <Footer />
     </Box>
   )
 }

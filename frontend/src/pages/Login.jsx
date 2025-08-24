@@ -34,8 +34,8 @@ const Login = () => {
   };
 
   return (
-    <Box minHeight="100vh" display="flex" alignItems="center" justifyContent="center" bgcolor="background.default">
-      <Card sx={{ p: 4, minWidth: 350, maxWidth: 400, boxShadow: 3 }}>
+  <Box minHeight="100%" display="flex" alignItems="center" justifyContent="center" bgcolor="background.default" sx={{ px: 2, m: 3 }}>
+      <Card sx={{ p: 4, width: '100%', maxWidth: 400, boxShadow: 3 }}>
         <Typography variant="h4" fontWeight={700} mb={2} color="primary.main" align="center">
           Đăng nhập
         </Typography>
