@@ -138,16 +138,54 @@ class UserViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.UpdateAPIVi
 		serializer = self.get_serializer(user)
 		return Response(serializer.data)
 	
-class CourseViewSet(viewsets.ViewSet,generics.CreateAPIView,generics.UpdateAPIView,generics.ListAPIView):
+class CourseViewSet(viewsets.ViewSet,generics.CreateAPIView,generics.UpdateAPIView,generics.ListAPIView,generics.RetrieveAPIView,generics.DestroyAPIView):
 	serializer_class = CourseSerializer
 	queryset = Course.objects.all()
-	filter_backends=[SearchFilter,OrderingFilter]
-	search_fields = ['title', 'description','tags__name']
-	ordering_fields = [ 'created_at', 'title']
+	filter_backends = [SearchFilter, OrderingFilter]
+	search_fields = ['title', 'description', 'tags__name']
+	ordering_fields = ['created_at', 'title']
 	ordering = ['-created_at']
 
 	def get_permissions(self):
-		if self.action in ['create', 'update', 'partial_update']:
+		if self.action in ['create', 'update', 'partial_update', 'destroy', 'deactivate']:
 			return [CanCURDCourse()]
 		return [permissions.IsAuthenticated()]
+
+	@action(detail=True, methods=['post'], url_path='deactivate')
+	def deactivate(self, request, pk=None):
+		course = self.get_object()
+		course.is_active = False
+		course.save()
+		return Response({"success": "Course deactivated."})
 	
+class TagViewSet(viewsets.ViewSet,generics.ListAPIView,generics.CreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
+	serializer_class = TagSerializer
+	queryset = Tag.objects.all()
+
+class CourseProgressViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPIView,generics.CreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
+	serializer_class = CourseProgressSerializer
+	queryset = CourseProgress.objects.all()
+
+class DocumentViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPIView,generics.CreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
+	serializer_class = DocumentSerializer
+	queryset = Document.objects.all()
+
+class QuestionViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPIView,generics.CreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
+	serializer_class = QuestionSerializer
+	queryset = Question.objects.all()
+
+class AnswerViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPIView,generics.CreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
+	serializer_class = AnswerSerializer
+	queryset = Answer.objects.all()
+
+class ReviewViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPIView,generics.CreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
+	serializer_class = ReviewSerializer
+	queryset = Review.objects.all()
+
+class NotificationViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPIView,generics.CreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
+	serializer_class = NotificationSerializer
+	queryset = Notification.objects.all()
+
+class UserNotificationViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPIView,generics.CreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
+	serializer_class = UserNotificationSerializer
+	queryset = UserNotification.objects.all()

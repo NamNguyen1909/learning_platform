@@ -1,3 +1,58 @@
+// Tag APIs
+export const fetchTags = (params) => api.get('/api/tags/', { params });
+export const fetchTag = (id) => api.get(`/api/tags/${id}/`);
+export const createTag = (data) => api.post('/api/tags/', data);
+export const updateTag = (id, data) => api.put(`/api/tags/${id}/`, data);
+export const deleteTag = (id) => api.delete(`/api/tags/${id}/`);
+
+// CourseProgress APIs
+export const fetchCourseProgresses = (params) => api.get('/api/course-progress/', { params });
+export const fetchCourseProgress = (id) => api.get(`/api/course-progress/${id}/`);
+export const createCourseProgress = (data) => api.post('/api/course-progress/', data);
+export const updateCourseProgress = (id, data) => api.put(`/api/course-progress/${id}/`, data);
+export const deleteCourseProgress = (id) => api.delete(`/api/course-progress/${id}/`);
+
+// Document APIs
+export const fetchDocuments = (params) => api.get('/api/documents/', { params });
+export const fetchDocument = (id) => api.get(`/api/documents/${id}/`);
+export const createDocument = (data) => api.post('/api/documents/', data);
+export const updateDocument = (id, data) => api.put(`/api/documents/${id}/`, data);
+export const deleteDocument = (id) => api.delete(`/api/documents/${id}/`);
+
+// Question APIs
+export const fetchQuestions = (params) => api.get('/api/questions/', { params });
+export const fetchQuestion = (id) => api.get(`/api/questions/${id}/`);
+export const createQuestion = (data) => api.post('/api/questions/', data);
+export const updateQuestion = (id, data) => api.put(`/api/questions/${id}/`, data);
+export const deleteQuestion = (id) => api.delete(`/api/questions/${id}/`);
+
+// Answer APIs
+export const fetchAnswers = (params) => api.get('/api/answers/', { params });
+export const fetchAnswer = (id) => api.get(`/api/answers/${id}/`);
+export const createAnswer = (data) => api.post('/api/answers/', data);
+export const updateAnswer = (id, data) => api.put(`/api/answers/${id}/`, data);
+export const deleteAnswer = (id) => api.delete(`/api/answers/${id}/`);
+
+// Review APIs
+export const fetchReviews = (params) => api.get('/api/reviews/', { params });
+export const fetchReview = (id) => api.get(`/api/reviews/${id}/`);
+export const createReview = (data) => api.post('/api/reviews/', data);
+export const updateReview = (id, data) => api.put(`/api/reviews/${id}/`, data);
+export const deleteReview = (id) => api.delete(`/api/reviews/${id}/`);
+
+// Notification APIs
+export const fetchNotifications = (params) => api.get('/api/notifications/', { params });
+export const fetchNotification = (id) => api.get(`/api/notifications/${id}/`);
+export const createNotification = (data) => api.post('/api/notifications/', data);
+export const updateNotification = (id, data) => api.put(`/api/notifications/${id}/`, data);
+export const deleteNotification = (id) => api.delete(`/api/notifications/${id}/`);
+
+// UserNotification APIs
+export const fetchUserNotifications = (params) => api.get('/api/user-notifications/', { params });
+export const fetchUserNotification = (id) => api.get(`/api/user-notifications/${id}/`);
+export const createUserNotification = (data) => api.post('/api/user-notifications/', data);
+export const updateUserNotification = (id, data) => api.put(`/api/user-notifications/${id}/`, data);
+export const deleteUserNotification = (id) => api.delete(`/api/user-notifications/${id}/`);
 import { GitHub } from '@mui/icons-material';
 import axios from 'axios';
 
