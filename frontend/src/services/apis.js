@@ -77,8 +77,9 @@ api.interceptors.response.use(
 );
 
 // API Endpoints configuration
+
 export const endpoints = {
-    // Authentication endpoints
+  // Authentication endpoints
   auth: {
     login: '/auth/token/',
     refresh: '/auth/token/refresh/',
@@ -91,14 +92,20 @@ export const endpoints = {
     'facebook': `${BE_ROOT}/auth/login/facebook/`,
     'github': `${BE_ROOT}/auth/login/github/`,
   },
-  user:{
+  user: {
     list: '/api/users/',
     create: '/api/users/',
     update: (id) => `/api/users/${id}/`,
-  }
+    listInstructors: (params = '') => `/api/users/instructors/${params ? '?' + params : ''}`,
+    listLearners: (params = '') => `/api/users/learners/${params ? '?' + params : ''}`,
+    createInstructor: '/api/users/create-instructor/',
+    createLearner: '/api/users/create-learner/',
+    activate: (id) => `/api/users/${id}/activate/`,
+    deactivate: (id) => `/api/users/${id}/deactivate/`,
+  },
+};
 
-}
-
-
-
+// Export axios instance và endpoints để dùng trực tiếp
 export default api;
+
+

@@ -4,3 +4,6 @@ from django.apps import AppConfig
 class LearningapiConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'learningapi'
+
+    def ready(self):
+        import learningapi.signals

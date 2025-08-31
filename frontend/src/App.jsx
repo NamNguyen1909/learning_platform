@@ -6,6 +6,9 @@ import { ThemeProvider } from '@mui/material/styles';
 import { CssBaseline } from '@mui/material';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import InstructorManagement from './pages/InstructorManagement';
+import LearnerManagement from './pages/LearnerManagement';
+import UserManagement from './pages/UserManagement';
 import Header from './components/Header';
 import Footer from './components/Footer';
 
@@ -18,6 +21,9 @@ const AppContent = () => {
           {/* <Route path="/" element={<Home />} /> */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/instructors-management" element={<InstructorManagement />} />
+          <Route path="/learners-management" element={<LearnerManagement />} />
+          <Route path="/users-management" element={<UserManagement />} />
         </Routes>
       </Box>
       <Footer />

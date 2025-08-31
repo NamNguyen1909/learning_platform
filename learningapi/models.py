@@ -40,6 +40,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 	phone = models.CharField(max_length=15, null=True, blank=True)
 	avatar = CloudinaryField('avatar', folder='user_avatars', null=True, blank=True)
 	is_active = models.BooleanField(default=True)
+	is_staff = models.BooleanField(default=False)
 	created_at = models.DateTimeField(auto_now_add=True)
 	updated_at = models.DateTimeField(auto_now=True)
 
@@ -60,13 +61,13 @@ class Tag(models.Model):
 
 # Course Model
 class Course(models.Model):
-	title = models.CharField(max_length=255, db_index=True)
+	title = models.CharField(max_length=255, db_index=True, unique=True)
 	description = models.TextField()
 	image = CloudinaryField('image', folder='course_images', null=True, blank=True)
 	instructor = models.ForeignKey('User', on_delete=models.CASCADE, related_name='courses', limit_choices_to={'role': UserRole.INSTRUCTOR})
 	price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], default=0)
-	start_date = models.DateField()
-	end_date = models.DateField()
+	start_date = models.DateField(null=True, blank=True)
+	end_date = models.DateField(null=True, blank=True)
 	is_active = models.BooleanField(default=True)
 	tags = models.ManyToManyField('Tag', blank=True, related_name='courses')
 	created_at = models.DateTimeField(auto_now_add=True)

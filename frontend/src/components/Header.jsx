@@ -35,13 +35,21 @@ const menuItemsByRole = {
   admin: [
     { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
     { text: 'Quản lý khóa học', icon: <Book />, path: '/courses' },
-    { text: 'Quản lý người dùng', icon: <People />, path: '/users' },
+    { text: 'Quản lý người dùng', icon: <People />, path: '/users-management' },
+    { text: 'Quản lý giảng viên', icon: <School />, path: '/instructors-management' },
+    { text: 'Quản lý học viên', icon: <People />, path: '/learners-management' },
+    { text: 'AI Tutor', icon: <Chat />, path: '/ai-tutor' },
+  ],
+  center: [
+    { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
+    { text: 'Quản lý giảng viên', icon: <School />, path: '/instructors-management' },
+    { text: 'Quản lý học viên', icon: <People />, path: '/learners-management' },
     { text: 'AI Tutor', icon: <Chat />, path: '/ai-tutor' },
   ],
   instructor: [
     { text: 'Khóa học của tôi', icon: <Book />, path: '/my-courses' },
     { text: 'Học viên', icon: <People />, path: '/students' },
-    { text: 'AI Tutor', icon: <Chat />, path: '/ai-tutor' },
+  { text: 'AI Tutor', icon: <Chat />, path: '/ai-tutor' },
   ],
   learner: [
     { text: 'Trang chủ', icon: <School />, path: '/' },
@@ -51,7 +59,6 @@ const menuItemsByRole = {
   guest: [
     { text: 'Trang chủ', icon: <School />, path: '/' },
     { text: 'Khóa học', icon: <Book />, path: '/courses' },
-    { text: 'AI Tutor', icon: <Chat />, path: '/ai-tutor' },
   ],
 };
 
