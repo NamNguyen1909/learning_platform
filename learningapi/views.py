@@ -177,12 +177,17 @@ class TagViewSet(viewsets.ViewSet,generics.ListAPIView,generics.CreateAPIView,ge
 
 class CourseProgressViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPIView,generics.UpdateAPIView):
 	serializer_class = CourseProgressSerializer
-	queryset = CourseProgress.objects.all()
 	ordering = ['-updated_at']
 
+	def get_queryset(self):
+		user = self.request.user
+		# Chỉ trả về progress của learner hiện tại
+		if user.is_authenticated and hasattr(user, 'role') and user.role == 'learner':
+			return CourseProgress.objects.filter(learner=user).order_by('-updated_at')
+		# Nếu không phải learner, trả về rỗng (hoặc có thể raise PermissionDenied)
+		return CourseProgress.objects.none()
+
 	def get_permissions(self):
-		if self.action in ['list']:
-			return [permissions.IsAuthenticated()]
 		return [permissions.IsAuthenticated()]
 
 class DocumentViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPIView,generics.CreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):

@@ -9,7 +9,9 @@ import uuid
 class UserManager(BaseUserManager):
 	def create_user(self, username, email, password=None, **extra_fields):
 		if not username and not email:
+			print('Phải cung cấp username hoặc email.')
 			raise ValueError('Phải cung cấp username hoặc email.')
+
 		if email:
 			email = self.normalize_email(email)
 		user = self.model(username=username, email=email, **extra_fields)

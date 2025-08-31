@@ -58,6 +58,7 @@ const menuItemsByRole = {
   learner: [
     { text: 'Trang chủ', icon: <School />, path: '/' },
     { text: 'Khóa học', icon: <Book />, path: '/courses' },
+    { text: 'Khóa học của tôi', icon: <Book />, path: '/my-coursesprogress' },
     { text: 'AI Tutor', icon: <Chat />, path: '/ai-tutor' },
   ],
   guest: [
