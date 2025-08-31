@@ -99,7 +99,7 @@ SOCIAL_AUTH_FACEBOOK_KEY = env('SOCIAL_AUTH_FACEBOOK_KEY', default='')
 SOCIAL_AUTH_FACEBOOK_SECRET = env('SOCIAL_AUTH_FACEBOOK_SECRET', default='')
 
 LOGIN_URL = '/login/'
-LOGIN_REDIRECT_URL = 'http://localhost:5173/' # Redirect về frontend sau khi đăng nhập thành công/ do chưa làm home nên về đây đỡ thay vì 404
+LOGIN_REDIRECT_URL = 'http://localhost:5173/' # Redirect về frontend 
 ## CORS settings
 CORS_ALLOW_ALL_ORIGINS = True  # Cho phép tất cả các domain, có thể thay bằng CORS_ALLOWED_ORIGINS = ['http://localhost:5173'] nếu chỉ cho phép frontend
 
@@ -218,6 +218,7 @@ SOCIAL_AUTH_PIPELINE = (
     'social_core.pipeline.social_auth.associate_user',
     'social_core.pipeline.social_auth.load_extra_data',
     'social_core.pipeline.user.user_details',
+    'learningapi.pipeline.generate_jwt_and_redirect',
 )
 SOCIAL_AUTH_FIELDS_STORED_IN_SESSION = ['email']
 SOCIAL_AUTH_EMAIL_REQUIRED = True
