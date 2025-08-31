@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, Course, Document, CourseProgress, Tag, Question, Answer, Payment, Review, Notification, UserNotification, Note
+from .models import *
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -12,13 +12,12 @@ class UserSerializer(serializers.ModelSerializer):
         return data
 
 class CourseSerializer(serializers.ModelSerializer):
-    teacher = UserSerializer(read_only=True)
-    center = UserSerializer(read_only=True)
+    instructor = UserSerializer(read_only=True)
     tags = serializers.StringRelatedField(many=True)
 
     class Meta:
         model = Course
-        fields = ['id', 'title', 'description', 'image', 'teacher', 'price', 'start_date', 'end_date', 'is_active', 'tags', 'created_at', 'updated_at']
+        fields = ['id', 'title', 'description', 'image', 'instructor', 'price', 'start_date', 'end_date', 'is_active', 'tags', 'created_at', 'updated_at']
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -36,12 +35,20 @@ class DocumentSerializer(serializers.ModelSerializer):
         data['file'] = instance.file.url if instance.file else ''
         return data
 
+class DocumentCompletionSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+    document = DocumentSerializer(read_only=True)
+    class Meta:
+        model = DocumentCompletion
+        fields = ['id', 'user', 'document', 'is_complete', 'completed_at']
+
+
 class CourseProgressSerializer(serializers.ModelSerializer):
     student = UserSerializer(read_only=True)
     course = CourseSerializer(read_only=True)
     class Meta:
         model = CourseProgress
-        fields = ['id', 'student', 'course', 'enrolled_at', 'completed_at', 'progress', 'is_completed']
+        fields = ['id', 'student', 'course', 'enrolled_at', 'completed_at', 'progress', 'is_completed', 'updated_at']
 
 class TagSerializer(serializers.ModelSerializer):
     class Meta:

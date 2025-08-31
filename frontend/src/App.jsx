@@ -43,14 +43,16 @@ const AppContent = () => {
             <>
 
 
-              {/* <Route path="/" element={<Home />} /> */}
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="/instructors-management" element={<InstructorManagement />} />
-              <Route path="/learners-management" element={<LearnerManagement />} />
-              <Route path="/users-management" element={<UserManagement />} />
-              <Route path="/centers-management" element={<CenterManagement />} />
-              <Route path="/profile" element={<Profile />} />
+                {/* <Route path="/" element={<Home />} /> */}
+                <Route path="/courses" element={<CourseList />} />
+                <Route path="/courses/:id" element={<CourseDetail />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+                <Route path="/instructors-management" element={<InstructorManagement />} />
+                <Route path="/learners-management" element={<LearnerManagement />} />
+                <Route path="/users-management" element={<UserManagement />} />
+                <Route path="/centers-management" element={<CenterManagement />} />
+                <Route path="/profile" element={<Profile />} />
             </>
           </Routes>
       </Box>
@@ -58,6 +60,9 @@ const AppContent = () => {
     </Box>
   )
 }
+
+import CourseList from './pages/CourseList';
+import CourseDetail from './pages/CourseDetail';
 
 function App() {
   return (

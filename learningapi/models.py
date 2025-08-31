@@ -85,6 +85,7 @@ class CourseProgress(models.Model):
 	completed_at = models.DateTimeField(null=True, blank=True)
 	progress = models.FloatField(default=0, validators=[MinValueValidator(0), MaxValueValidator(100)])  # % hoàn thành
 	is_completed = models.BooleanField(default=False)
+	updated_at = models.DateTimeField(auto_now=True)
 
 	class Meta:
 		unique_together = ('learner', 'course')
@@ -100,8 +101,46 @@ class Document(models.Model):
 	file = CloudinaryField('file', folder='learning_platform/course_documents', null=True, blank=True)
 	uploaded_by = models.ForeignKey('User', on_delete=models.SET_NULL, null=True, blank=True, related_name='uploaded_documents')
 	uploaded_at = models.DateTimeField(auto_now_add=True)
+
 	def __str__(self):
 		return self.title
+	
+
+class DocumentCompletion(models.Model):
+	user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='document_completions')
+	document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name='completions')
+	is_complete = models.BooleanField(default=False)
+	completed_at = models.DateTimeField(null=True, blank=True)
+
+	def mark_complete(self):
+		self.is_complete = True
+		self.completed_at = timezone.now()
+		self.save()
+		# Cập nhật progress cho CourseProgress liên quan
+		from .models import CourseProgress
+		learner = self.user
+		course = self.document.course
+		try:
+			progress = CourseProgress.objects.get(learner=learner, course=course)
+		except CourseProgress.DoesNotExist:
+			return
+		# Tổng số document của khoá học
+		total_docs = course.documents.count()
+		if total_docs == 0:
+			progress.progress = 0
+			progress.is_completed = False
+			progress.save()
+			return
+		# Số document learner đã hoàn thành
+		completed_docs = DocumentCompletion.objects.filter(user=learner, document__course=course, is_complete=True).count()
+		progress.progress = round(completed_docs / total_docs * 100, 2) 
+		progress.is_completed = progress.progress >= 100
+		progress.save()
+
+	class Meta:
+		unique_together = ('user', 'document')
+
+	
 
 
 # Question/Answer Model: mỗi question như 1 box chat, answer là các reply giữa người học và AI tích hợp

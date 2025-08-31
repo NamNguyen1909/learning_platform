@@ -145,10 +145,13 @@ class CourseViewSet(viewsets.ViewSet,generics.CreateAPIView,generics.UpdateAPIVi
 	search_fields = ['title', 'description', 'tags__name']
 	ordering_fields = ['created_at', 'title']
 	ordering = ['-created_at']
+	pagination_class = CoursePagination
 
 	def get_permissions(self):
 		if self.action in ['create', 'update', 'partial_update', 'destroy', 'deactivate']:
 			return [CanCURDCourse()]
+		if self.action in ['list', 'retrieve']:
+			return [permissions.AllowAny()]
 		return [permissions.IsAuthenticated()]
 
 	@action(detail=True, methods=['post'], url_path='deactivate')
@@ -157,18 +160,39 @@ class CourseViewSet(viewsets.ViewSet,generics.CreateAPIView,generics.UpdateAPIVi
 		course.is_active = False
 		course.save()
 		return Response({"success": "Course deactivated."})
-	
+	@action(detail=True, methods=['post'], url_path='register')
+	def register(self, request, pk=None):
+		user = request.user
+		course = self.get_object()
+		from .models import CourseProgress
+		if CourseProgress.objects.filter(learner=user, course=course).exists():
+			return Response({'error': 'Bạn đã đăng ký khóa học này.'}, status=400)
+		CourseProgress.objects.create(learner=user, course=course)
+		return Response({'success': 'Đăng ký khóa học thành công.'})
 class TagViewSet(viewsets.ViewSet,generics.ListAPIView,generics.CreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
 	serializer_class = TagSerializer
 	queryset = Tag.objects.all()
+	ordering = ['name']
 
-class CourseProgressViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPIView,generics.CreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
+
+class CourseProgressViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPIView,generics.UpdateAPIView):
 	serializer_class = CourseProgressSerializer
 	queryset = CourseProgress.objects.all()
+	ordering = ['-updated_at']
+
+	def get_permissions(self):
+		if self.action in ['list']:
+			return [permissions.IsAuthenticated()]
+		return [permissions.IsAuthenticated()]
 
 class DocumentViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPIView,generics.CreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
 	serializer_class = DocumentSerializer
 	queryset = Document.objects.all()
+
+# DocumentCompletion ViewSet
+class DocumentCompletionViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPIView,):
+	serializer_class = DocumentCompletionSerializer
+	queryset = DocumentCompletion.objects.all()
 
 class QuestionViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPIView,generics.CreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
 	serializer_class = QuestionSerializer

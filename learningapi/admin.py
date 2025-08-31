@@ -4,7 +4,7 @@ from django.contrib import admin
 
 from django.utils.safestring import mark_safe
 from django import forms
-from .models import User, Course, CourseProgress, Payment, Note, Tag, Document, Question, Answer, Review, Notification, UserNotification
+from .models import *
 
 # User Admin
 class UserAdmin(admin.ModelAdmin):
@@ -61,6 +61,14 @@ class DocumentAdmin(admin.ModelAdmin):
 			return mark_safe(f"<a href='{obj.file.url}' target='_blank'>Xem file</a>")
 		return "Không có file"
 	file_view.short_description = "File"
+
+# DocumentCompletion Admin
+class DocumentCompletionAdmin(admin.ModelAdmin):
+	list_display = ['id', 'user', 'document', 'is_complete', 'completed_at']
+	search_fields = ['user__username', 'document__title']
+	list_filter = ['is_complete', 'completed_at']
+	list_per_page = 20
+
 
 # Question Admin
 class QuestionAdmin(admin.ModelAdmin):
@@ -133,6 +141,7 @@ admin.site.register(Tag, TagAdmin)
 admin.site.register(Course, CourseAdmin)
 admin.site.register(CourseProgress, CourseProgressAdmin)
 admin.site.register(Document, DocumentAdmin)
+admin.site.register(DocumentCompletion, DocumentCompletionAdmin)
 admin.site.register(Question, QuestionAdmin)
 admin.site.register(Answer, AnswerAdmin)
 admin.site.register(Payment, PaymentAdmin)

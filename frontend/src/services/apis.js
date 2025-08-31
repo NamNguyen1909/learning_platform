@@ -159,7 +159,18 @@ export const endpoints = {
     deactivate: (id) => `/api/users/${id}/deactivate/`,
     userInfo: '/api/users/current_user/',
     updateProfile: '/api/users/current_user/',
-
+  },
+  course: {
+  list: '/api/courses/',
+    detail: (id) => `/api/courses/${id}/`,
+    register: (id) => `/api/courses/${id}/register/`,
+  },
+  document: {
+    list: (params = {}) => {
+      const query = Object.keys(params).map(k => `${k}=${params[k]}`).join('&');
+      return `/api/documents/${query ? '?' + query : ''}`;
+    },
+    detail: (id) => `/api/documents/${id}/`,
   },
 };
 

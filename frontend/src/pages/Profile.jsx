@@ -163,7 +163,7 @@ const Profile = () => {
         </Box>
         <Divider sx={{ mb: 3 }} />
         <Grid container spacing={2}>
-          <Grid item xs={12}>
+          <Grid>
             <TextField
               label="Họ và tên"
               name="full_name"
@@ -176,7 +176,7 @@ const Profile = () => {
               }}
             />
           </Grid>
-          <Grid item xs={12}>
+          <Grid>
             <TextField
               label="Email"
               name="email"
@@ -190,7 +190,7 @@ const Profile = () => {
               helperText="Email không thể thay đổi"
             />
           </Grid>
-          <Grid item xs={12}>
+          <Grid>
             <TextField
               label="Số điện thoại"
               name="phone"

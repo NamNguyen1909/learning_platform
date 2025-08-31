@@ -39,7 +39,7 @@ const Footer = () => {
           textAlign: { xs: "center", sm: "left" },
         }}
       >
-        <Grid item lg={4} sm={6} xs={12}>
+    <Grid>
           <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
             Smart Learning Platform
           </Typography>
@@ -100,7 +100,7 @@ const Footer = () => {
             </Link>
           </Box>
         </Grid>
-        <Grid item lg={4} sm={6} xs={12} sx={{ mt: { xs: 2, sm: 0 } }}>
+  <Grid sx={{ mt: { xs: 2, sm: 0 } }}>
           <Box
             sx={{
               display: "flex",
