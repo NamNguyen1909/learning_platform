@@ -4,7 +4,7 @@ from .models import User, Course, Document, CourseProgress, Tag, Question, Answe
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'role', 'phone', 'avatar', 'is_active', 'created_at', 'updated_at']
+        fields = ['id', 'username', 'email', 'full_name', 'role', 'phone', 'avatar', 'is_active', 'created_at', 'updated_at']
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

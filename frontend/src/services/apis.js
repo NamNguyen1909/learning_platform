@@ -86,6 +86,7 @@ export const endpoints = {
     register: '/auth/register/',
     logout: '/auth/token/blacklist/',
     userInfo: '/api/users/current_user/',
+    updateProfile: '/api/users/current_user/',
   },
   social_auth: {
     'google-oauth2': `${BE_ROOT}/auth/login/google-oauth2/`,
@@ -96,11 +97,14 @@ export const endpoints = {
     list: '/api/users/',
     create: '/api/users/',
     update: (id) => `/api/users/${id}/`,
-  listInstructors: (params = '') => `/api/users/instructors/${params ? '?' + params : ''}`,
-  listLearners: (params = '') => `/api/users/learners/${params ? '?' + params : ''}`,
-  listCenters: (params = '') => `/api/users/centers/${params ? '?' + params : ''}`,
+    listInstructors: (params = '') => `/api/users/instructors/${params ? '?' + params : ''}`,
+    listLearners: (params = '') => `/api/users/learners/${params ? '?' + params : ''}`,
+    listCenters: (params = '') => `/api/users/centers/${params ? '?' + params : ''}`,
     activate: (id) => `/api/users/${id}/activate/`,
     deactivate: (id) => `/api/users/${id}/deactivate/`,
+    userInfo: '/api/users/current_user/',
+    updateProfile: '/api/users/current_user/',
+
   },
 };
 

@@ -49,10 +49,13 @@ class UserViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.UpdateAPIVi
 	# chỉ có thể tạo account với role là learner hoặc instructor
 	def create(self, request, *args, **kwargs):
 		role = request.data.get("role")
-		if role not in ["learner", "instructor"]:
-			return Response({"error": "Invalid role. Only 'learner' and 'instructor' roles are allowed."}, status=400)
+		if role not in ["learner", "instructor", "center"]:
+			return Response({"error": "Invalid role. Only 'learner', 'instructor', 'center' roles are allowed."}, status=400)
 		password = request.data.pop('password')
+		full_name = request.data.get('full_name', None)
 		user = User(**request.data)
+		if full_name:
+			user.full_name = full_name
 		user.set_password(password)
 		user.save()
 		return Response({"success": "User created successfully."}, status=201)
@@ -124,9 +127,15 @@ class UserViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.UpdateAPIVi
 		return Response({"success": "User activated."})
 
 
-	@action(detail=False, methods=['get'])
+	@action(detail=False, methods=['get', 'put', 'patch'], url_path='current_user')
 	def current_user(self, request):
-		serializer = self.get_serializer(request.user)
+		user = request.user
+		if request.method in ['PUT', 'PATCH']:
+			serializer = self.get_serializer(user, data=request.data, partial=True)
+			serializer.is_valid(raise_exception=True)
+			serializer.save()
+			return Response(serializer.data)
+		serializer = self.get_serializer(user)
 		return Response(serializer.data)
 	
 class CourseViewSet(viewsets.ViewSet,generics.CreateAPIView,generics.UpdateAPIView,generics.ListAPIView):

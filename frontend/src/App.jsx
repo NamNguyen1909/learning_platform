@@ -12,21 +12,25 @@ import LearnerManagement from './pages/LearnerManagement';
 import UserManagement from './pages/UserManagement';
 import Header from './components/Header';
 import Footer from './components/Footer';
+import Profile from './pages/Profile';
 
 const AppContent = () => {
   return (
   <Box sx={{ minHeight: '100vh', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
       <Header />
       <Box sx={{ flex: 1, width: '100%' }}>
-        <Routes>
-          {/* <Route path="/" element={<Home />} /> */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/instructors-management" element={<InstructorManagement />} />
-          <Route path="/learners-management" element={<LearnerManagement />} />
-          <Route path="/users-management" element={<UserManagement />} />
-          <Route path="/centers-management" element={<CenterManagement />} />
-        </Routes>
+          <Routes>
+            <>
+              {/* <Route path="/" element={<Home />} /> */}
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/instructors-management" element={<InstructorManagement />} />
+              <Route path="/learners-management" element={<LearnerManagement />} />
+              <Route path="/users-management" element={<UserManagement />} />
+              <Route path="/centers-management" element={<CenterManagement />} />
+              <Route path="/profile" element={<Profile />} />
+            </>
+          </Routes>
       </Box>
       <Footer />
     </Box>

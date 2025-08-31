@@ -18,15 +18,17 @@ for _ in range(30):
     username = fake.user_name() + str(fake.random_int(1000, 9999))
     email = fake.email()
     phone = fake.numerify(text='0##########')  # Số Việt Nam 10-11 số
+    full_name = fake.name()
     user = User.objects.create_user(
         username=username,
         email=email,
         password='123456',
         role=role,
         phone=phone,
+        full_name=full_name,
         is_active=True
     )
-    print(f"Created user: {username} ({role})")
+    print(f"Created user: {username} ({role}) - {full_name}")
 
 # Tạo tag giả nếu chưa có
 for _ in range(10):

@@ -36,9 +36,10 @@ class UserRole(models.TextChoices):
 class User(AbstractBaseUser, PermissionsMixin):
 	username = models.CharField(max_length=255, unique=True, db_index=True)
 	email = models.EmailField(max_length=255, unique=True, db_index=True)
+	full_name = models.CharField(max_length=255, null=True, blank=True)
 	role = models.CharField(max_length=20, choices=UserRole.choices, default=UserRole.LEARNER)
 	phone = models.CharField(max_length=15, null=True, blank=True)
-	avatar = CloudinaryField('avatar', folder='user_avatars', null=True, blank=True)
+	avatar = CloudinaryField('avatar', folder='learning_platform/user_avatars', null=True, blank=True)
 	is_active = models.BooleanField(default=True)
 	is_staff = models.BooleanField(default=False)
 	created_at = models.DateTimeField(auto_now_add=True)
@@ -63,7 +64,7 @@ class Tag(models.Model):
 class Course(models.Model):
 	title = models.CharField(max_length=255, db_index=True, unique=True)
 	description = models.TextField()
-	image = CloudinaryField('image', folder='course_images', null=True, blank=True)
+	image = CloudinaryField('image', folder='learning_platform/course_images', null=True, blank=True)
 	instructor = models.ForeignKey('User', on_delete=models.CASCADE, related_name='courses', limit_choices_to={'role': UserRole.INSTRUCTOR})
 	price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], default=0)
 	start_date = models.DateField(null=True, blank=True)
@@ -96,7 +97,7 @@ class CourseProgress(models.Model):
 class Document(models.Model):
 	course = models.ForeignKey('Course', on_delete=models.CASCADE, related_name='documents')
 	title = models.CharField(max_length=255)
-	file = CloudinaryField('file', folder='course_documents', null=True, blank=True)
+	file = CloudinaryField('file', folder='learning_platform/course_documents', null=True, blank=True)
 	uploaded_by = models.ForeignKey('User', on_delete=models.SET_NULL, null=True, blank=True, related_name='uploaded_documents')
 	uploaded_at = models.DateTimeField(auto_now_add=True)
 	def __str__(self):

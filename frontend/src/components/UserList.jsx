@@ -46,7 +46,7 @@ const UserList = ({ userType }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalType, setModalType] = useState(null); // 'view' | 'edit' | 'add'
   const [selectedUser, setSelectedUser] = useState(null);
-  const [formData, setFormData] = useState({ username: '', email: '', phone: '', is_active: true, role: 'learner', password: '' });
+  const [formData, setFormData] = useState({ username: '', email: '', full_name: '', phone: '', is_active: true, role: 'learner', password: '' });
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   // Khi mở modal edit/add, set formData
   useEffect(() => {
@@ -54,13 +54,14 @@ const UserList = ({ userType }) => {
       setFormData({
         username: selectedUser.username || '',
         email: selectedUser.email || '',
+        full_name: selectedUser.full_name || '',
         phone: selectedUser.phone || '',
         is_active: selectedUser.is_active,
         role: selectedUser.role || 'learner',
         password: '',
       });
     } else if (modalType === 'add') {
-      setFormData({ username: '', email: '', phone: '', is_active: true, role: 'learner', password: '' });
+      setFormData({ username: '', email: '', full_name: '', phone: '', is_active: true, role: 'learner', password: '' });
     }
   }, [modalType, selectedUser]);
   // Xử lý thay đổi form
@@ -261,6 +262,14 @@ const UserList = ({ userType }) => {
               />
               <TextField
                 margin="normal"
+                label="Họ và tên"
+                name="full_name"
+                value={formData.full_name}
+                onChange={handleFormChange}
+                fullWidth
+              />
+              <TextField
+                margin="normal"
                 label="Phone"
                 name="phone"
                 value={formData.phone}
@@ -303,6 +312,14 @@ const UserList = ({ userType }) => {
                 onChange={handleFormChange}
                 fullWidth
                 required
+              />
+              <TextField
+                margin="normal"
+                label="Họ và tên"
+                name="full_name"
+                value={formData.full_name}
+                onChange={handleFormChange}
+                fullWidth
               />
               <TextField
                 margin="normal"
