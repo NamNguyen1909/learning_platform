@@ -1,58 +1,3 @@
-// Tag APIs
-export const fetchTags = (params) => api.get('/api/tags/', { params });
-export const fetchTag = (id) => api.get(`/api/tags/${id}/`);
-export const createTag = (data) => api.post('/api/tags/', data);
-export const updateTag = (id, data) => api.put(`/api/tags/${id}/`, data);
-export const deleteTag = (id) => api.delete(`/api/tags/${id}/`);
-
-// CourseProgress APIs
-export const fetchCourseProgresses = (params) => api.get('/api/course-progress/', { params });
-export const fetchCourseProgress = (id) => api.get(`/api/course-progress/${id}/`);
-export const createCourseProgress = (data) => api.post('/api/course-progress/', data);
-export const updateCourseProgress = (id, data) => api.put(`/api/course-progress/${id}/`, data);
-export const deleteCourseProgress = (id) => api.delete(`/api/course-progress/${id}/`);
-
-// Document APIs
-export const fetchDocuments = (params) => api.get('/api/documents/', { params });
-export const fetchDocument = (id) => api.get(`/api/documents/${id}/`);
-export const createDocument = (data) => api.post('/api/documents/', data);
-export const updateDocument = (id, data) => api.put(`/api/documents/${id}/`, data);
-export const deleteDocument = (id) => api.delete(`/api/documents/${id}/`);
-
-// Question APIs
-export const fetchQuestions = (params) => api.get('/api/questions/', { params });
-export const fetchQuestion = (id) => api.get(`/api/questions/${id}/`);
-export const createQuestion = (data) => api.post('/api/questions/', data);
-export const updateQuestion = (id, data) => api.put(`/api/questions/${id}/`, data);
-export const deleteQuestion = (id) => api.delete(`/api/questions/${id}/`);
-
-// Answer APIs
-export const fetchAnswers = (params) => api.get('/api/answers/', { params });
-export const fetchAnswer = (id) => api.get(`/api/answers/${id}/`);
-export const createAnswer = (data) => api.post('/api/answers/', data);
-export const updateAnswer = (id, data) => api.put(`/api/answers/${id}/`, data);
-export const deleteAnswer = (id) => api.delete(`/api/answers/${id}/`);
-
-// Review APIs
-export const fetchReviews = (params) => api.get('/api/reviews/', { params });
-export const fetchReview = (id) => api.get(`/api/reviews/${id}/`);
-export const createReview = (data) => api.post('/api/reviews/', data);
-export const updateReview = (id, data) => api.put(`/api/reviews/${id}/`, data);
-export const deleteReview = (id) => api.delete(`/api/reviews/${id}/`);
-
-// Notification APIs
-export const fetchNotifications = (params) => api.get('/api/notifications/', { params });
-export const fetchNotification = (id) => api.get(`/api/notifications/${id}/`);
-export const createNotification = (data) => api.post('/api/notifications/', data);
-export const updateNotification = (id, data) => api.put(`/api/notifications/${id}/`, data);
-export const deleteNotification = (id) => api.delete(`/api/notifications/${id}/`);
-
-// UserNotification APIs
-export const fetchUserNotifications = (params) => api.get('/api/user-notifications/', { params });
-export const fetchUserNotification = (id) => api.get(`/api/user-notifications/${id}/`);
-export const createUserNotification = (data) => api.post('/api/user-notifications/', data);
-export const updateUserNotification = (id, data) => api.put(`/api/user-notifications/${id}/`, data);
-export const deleteUserNotification = (id) => api.delete(`/api/user-notifications/${id}/`);
 import { GitHub } from '@mui/icons-material';
 import axios from 'axios';
 
@@ -161,9 +106,19 @@ export const endpoints = {
     updateProfile: '/api/users/current_user/',
   },
   course: {
-  list: '/api/courses/',
+    list: '/api/courses/',
     detail: (id) => `/api/courses/${id}/`,
     register: (id) => `/api/courses/${id}/register/`,
+    deactivate: (id) => `/api/courses/${id}/deactivate/`,
+  },
+  tag: {
+    list: '/api/tags/',
+    detail: (id) => `/api/tags/${id}/`,
+  },
+  courseProgress: {
+    list: '/api/course-progress/',
+    detail: (id) => `/api/course-progress/${id}/`,
+    update: (id) => `/api/course-progress/${id}/`,
   },
   document: {
     list: (params = {}) => {
@@ -171,6 +126,51 @@ export const endpoints = {
       return `/api/documents/${query ? '?' + query : ''}`;
     },
     detail: (id) => `/api/documents/${id}/`,
+    create: '/api/documents/',
+    update: (id) => `/api/documents/${id}/`,
+    delete: (id) => `/api/documents/${id}/`,
+  },
+  documentCompletion: {
+    list: '/api/document-completions/',
+    detail: (id) => `/api/document-completions/${id}/`,
+    create: '/api/document-completions/',
+    update: (id) => `/api/document-completions/${id}/`,
+    delete: (id) => `/api/document-completions/${id}/`,
+  },
+  question: {
+    list: '/api/questions/',
+    detail: (id) => `/api/questions/${id}/`,
+    create: '/api/questions/',
+    update: (id) => `/api/questions/${id}/`,
+    delete: (id) => `/api/questions/${id}/`,
+  },
+  answer: {
+    list: '/api/answers/',
+    detail: (id) => `/api/answers/${id}/`,
+    create: '/api/answers/',
+    update: (id) => `/api/answers/${id}/`,
+    delete: (id) => `/api/answers/${id}/`,
+  },
+  review: {
+    list: '/api/reviews/',
+    detail: (id) => `/api/reviews/${id}/`,
+    create: '/api/reviews/',
+    update: (id) => `/api/reviews/${id}/`,
+    delete: (id) => `/api/reviews/${id}/`,
+  },
+  notification: {
+    list: '/api/notifications/',
+    detail: (id) => `/api/notifications/${id}/`,
+    create: '/api/notifications/',
+    update: (id) => `/api/notifications/${id}/`,
+    delete: (id) => `/api/notifications/${id}/`,
+  },
+  userNotification: {
+    list: '/api/user-notifications/',
+    detail: (id) => `/api/user-notifications/${id}/`,
+    create: '/api/user-notifications/',
+    update: (id) => `/api/user-notifications/${id}/`,
+    delete: (id) => `/api/user-notifications/${id}/`,
   },
 };
 

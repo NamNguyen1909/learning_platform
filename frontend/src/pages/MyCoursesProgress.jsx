@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { fetchCourseProgresses } from '../services/apis';
+import api, { endpoints } from '../services/apis';
 import { Container, Grid, Card, CardContent, CardMedia, Typography, Box, LinearProgress, Button, Stack } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 
 const getProgressLabel = (progress) => {
   if (progress >= 100) return 'Đã hoàn thành';
@@ -17,9 +18,10 @@ const getButtonColor = (progress) => {
 const MyCoursesProgress = () => {
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    fetchCourseProgresses()
+    api.get(endpoints.courseProgress.list)
       .then(res => setCourses(res.data))
       .finally(() => setLoading(false));
   }, []);
@@ -37,7 +39,7 @@ const MyCoursesProgress = () => {
           {courses.map((item) => {
             const course = item.course;
             return (
-              <Grid item xs={12} sm={6} md={4} key={item.id}>
+              <Grid size={{ xs: 12, sm: 6, md: 4 }} key={item.id}>
                 <Card>
                   {course.image && (
                     <CardMedia
@@ -66,7 +68,8 @@ const MyCoursesProgress = () => {
                         color={getButtonColor(item.progress)}
                         fullWidth
                         disabled={item.progress >= 100}
-                        // TODO: Thêm logic chuyển trang học
+                        onClick={() => navigate(`/courses/${course.id}`)}
+
                       >
                         {getProgressLabel(item.progress)}
                       </Button>

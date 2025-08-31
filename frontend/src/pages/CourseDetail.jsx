@@ -11,20 +11,60 @@ const CourseDetail = () => {
   const [loading, setLoading] = useState(true);
   const [registering, setRegistering] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [hasCourseProgress, setHasCourseProgress] = useState(null); // null: chưa xác định, true/false: đã kiểm tra
+  const [courseProgress, setCourseProgress] = useState(null); // lưu object CourseProgress nếu có
   const navigate = useNavigate();
 
-  useEffect(() => {
+  // Hàm kiểm tra user đã có CourseProgress cho khóa học chưa, trả về true/false và cập nhật state
+  const checkCourseProgress = async (courseId) => {
+    const token = localStorage.getItem('access_token');
+    if (!authUtils.isAuthenticated()) {
+      setHasCourseProgress(false);
+      setCourseProgress(null);
+      console.log('Not authenticated, token:', token);
+      return false;
+    }
+    try {
+      console.log('Checking course progress for user...', 'token:', token);
+  const res = await api.get(endpoints.courseProgress.list, { params: { course: courseId } });
+      console.log('API /api/course-progress response:', res);
+      if (Array.isArray(res.data) && res.data.length > 0) {
+        console.log('User has course progress:', res.data[0]);
+        setCourseProgress(res.data[0]);
+        setHasCourseProgress(true);
+        return true;
+      }
+      console.log('User does not have course progress, data:', res.data);
+      setCourseProgress(null);
+      setHasCourseProgress(false);
+      return false;
+    } catch (err) {
+      setCourseProgress(null);
+      setHasCourseProgress(false);
+      console.error('Error checking course progress:', err);
+      return false;
+    }
+  };
+
+  // Hàm load toàn bộ dữ liệu (course, documents, progress)
+  const loadAllData = async () => {
     setLoading(true);
-    Promise.all([
-      api.get(endpoints.course.detail(id)),
-      api.get(endpoints.document.list({ course: id }))
-    ])
-      .then(([courseRes, docRes]) => {
-        setCourse(courseRes.data);
-        setDocuments(docRes.data);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+    try {
+      const [courseRes, docRes] = await Promise.all([
+        api.get(endpoints.course.detail(id)),
+        api.get(endpoints.document.list({ course: id }))
+      ]);
+      setCourse(courseRes.data);
+      setDocuments(docRes.data);
+    } finally {
+      setLoading(false);
+    }
+    await checkCourseProgress(id);
+  };
+
+  useEffect(() => {
+    loadAllData();
+    // eslint-disable-next-line
   }, [id]);
 
   // Xử lý click document: nếu chưa đăng nhập thì redirect login, nếu đã đăng nhập thì sang trang chi tiết document (sau này kiểm tra quyền ở BE)
@@ -33,21 +73,47 @@ const CourseDetail = () => {
       navigate('/login', { state: { from: window.location.pathname } });
       return;
     }
-    // Chuyển sang trang chi tiết document (có thể kiểm tra quyền ở đó)
+    // Kiểm tra lại quyền truy cập tài liệu (tái sử dụng hàm)
+    const hasProgress = hasCourseProgress ?? (await checkCourseProgress(id));
+    if (!hasProgress) {
+      setSnackbar({ open: true, message: 'Bạn cần đăng ký khóa học để xem tài liệu!', severity: 'warning' });
+      return;
+    }
+    // Đã đăng ký, cho phép xem tài liệu
     navigate(`/documents/${doc.id}`);
   };
 
-  // Xử lý click đăng ký: nếu chưa đăng nhập thì redirect login, nếu đã đăng nhập thì (sau này) chuyển sang trang thanh toán
-  const handleRegisterClick = async () => {
+  // Xử lý click đăng ký hoặc vào học
+  const handleRegisterOrLearnClick = async () => {
     if (!authUtils.isAuthenticated()) {
       navigate('/login', { state: { from: window.location.pathname } });
       return;
     }
-    // Sau này: chuyển sang trang thanh toán
+    if (hasCourseProgress && courseProgress) {
+      // Đã đăng ký, vào học: tìm document đầu tiên chưa hoàn thành hoặc đầu tiên
+      let nextDoc = null;
+      // Nếu có trường document_completion hoặc cần fetch thêm, có thể mở rộng ở đây
+      // Hiện tại, mặc định vào document đầu tiên
+      if (documents && documents.length > 0) {
+        nextDoc = documents[0];
+      }
+      if (nextDoc) {
+        navigate(`/documents/${nextDoc.id}`);
+      } else {
+        setSnackbar({ open: true, message: 'Không tìm thấy tài liệu để học.', severity: 'info' });
+      }
+      return;
+    }
+    // Chưa đăng ký: đăng ký khóa học
     setRegistering(true);
     api.post(endpoints.course.register(id))
       .then(() => {
         setSnackbar({ open: true, message: 'Đăng ký thành công!', severity: 'success' });
+        // Cập nhật state tạm thời để disable nút ngay lập tức
+        setHasCourseProgress(true);
+        setCourseProgress({ is_completed: false });
+        // Đăng ký xong, reload lại toàn bộ dữ liệu để cập nhật trạng thái nút và quyền truy cập
+        loadAllData();
       })
       .catch(() => {
         setSnackbar({ open: true, message: 'Đăng ký thất bại!', severity: 'error' });
@@ -96,9 +162,27 @@ const CourseDetail = () => {
                     Giảng viên: <b>{course.instructor.full_name || course.instructor.username}</b>
                 </Typography>
                 )}
-                <Button variant="contained" color="primary" onClick={handleRegisterClick} disabled={registering} sx={{ mb: 3, minWidth: 180 }}>
-                {registering ? 'Đang đăng ký...' : 'Đăng ký khóa học'}
-                </Button>
+                {hasCourseProgress && courseProgress ? (
+                  <Button
+                    variant="contained"
+                    color={courseProgress.is_completed ? 'success' : 'primary'}
+                    onClick={courseProgress.is_completed ? undefined : handleRegisterOrLearnClick}
+                    disabled={courseProgress.is_completed}
+                    sx={{ mb: 3, minWidth: 180 }}
+                  >
+                    {courseProgress.is_completed ? 'Đã hoàn thành' : 'Vào học'}
+                  </Button>
+                ) : (
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={handleRegisterOrLearnClick}
+                    disabled={registering}
+                    sx={{ mb: 3, minWidth: 180 }}
+                  >
+                    {registering ? 'Đang đăng ký...' : 'Đăng ký khóa học'}
+                  </Button>
+                )}
         </Grid>
 
 
