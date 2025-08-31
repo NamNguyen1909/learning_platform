@@ -85,7 +85,7 @@ export const endpoints = {
     refresh: '/auth/token/refresh/',
     register: '/auth/register/',
     logout: '/auth/token/blacklist/',
-    userInfo: '/auth/user/',
+    userInfo: '/api/users/current_user/',
   },
   social_auth: {
     'google-oauth2': `${BE_ROOT}/auth/login/google-oauth2/`,

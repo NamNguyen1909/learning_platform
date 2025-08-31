@@ -74,17 +74,27 @@ const Header = () => {
   const [userRole, setUserRole] = useState('guest');
   const [notifications, setNotifications] = useState(0);
 
-  // Kiểm tra login
+  // Kiểm tra login và lấy user info thực tế
   useEffect(() => {
-    if (auth?.isAuthenticated()) {
-      setUser({ username: 'user', full_name: 'User', email: 'user@email.com', avatar: '' });
-      setUserRole('learner');
-      setNotifications(2);
-    } else {
-      setUser(null);
-      setUserRole('guest');
-      setNotifications(0);
-    }
+    const fetchUser = async () => {
+      if (auth?.isAuthenticated()) {
+        const userInfo = await auth.getCurrentUser(true);
+        if (userInfo) {
+          setUser(userInfo);
+          setUserRole(userInfo.role || 'learner');
+          setNotifications(2); // TODO: fetch real notification count if needed
+        } else {
+          setUser(null);
+          setUserRole('guest');
+          setNotifications(0);
+        }
+      } else {
+        setUser(null);
+        setUserRole('guest');
+        setNotifications(0);
+      }
+    };
+    fetchUser();
   }, []);
 
   // Handlers
