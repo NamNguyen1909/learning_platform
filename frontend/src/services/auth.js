@@ -45,6 +45,8 @@ const authUtils = {
       });
       const { access, refresh } = response.data;
       authUtils.setTokens(access, refresh);
+      // Thông báo cho Header cập nhật lại user info
+      window.dispatchEvent(new Event('authChanged'));
       return response.data;
     } catch (error) {
       console.error('Login error:', error);

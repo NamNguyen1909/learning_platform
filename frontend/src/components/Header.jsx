@@ -38,6 +38,7 @@ const menuItemsByRole = {
     { text: 'Quản lý người dùng', icon: <People />, path: '/users-management' },
     { text: 'Quản lý giảng viên', icon: <School />, path: '/instructors-management' },
     { text: 'Quản lý học viên', icon: <People />, path: '/learners-management' },
+    { text: 'Quản lý trung tâm', icon: <School />, path: '/centers-management' },
     { text: 'AI Tutor', icon: <Chat />, path: '/ai-tutor' },
   ],
   center: [
@@ -95,6 +96,8 @@ const Header = () => {
       }
     };
     fetchUser();
+    window.addEventListener('authChanged', fetchUser);
+    return () => window.removeEventListener('authChanged', fetchUser);
   }, []);
 
   // Handlers

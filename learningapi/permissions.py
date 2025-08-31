@@ -4,7 +4,6 @@ class IsAdmin(permissions.IsAuthenticated):
     def has_permission(self, request, view):
         return super().has_permission(request, view) and request.user.role == 'admin'
 
-
 class IsInstructor(permissions.IsAuthenticated):
     def has_permission(self, request, view):
         return super().has_permission(request, view) and request.user.role == 'instructor'
@@ -20,3 +19,7 @@ class IsCenter(permissions.IsAuthenticated):
 class CanCURDCourse(permissions.BasePermission):
     def has_permission(self, request, view):
         return super().has_permission(request, view) and request.user.role in ['admin', 'center', 'instructor']
+
+class IsAdminorCenter(permissions.IsAuthenticated):
+    def has_permission(self, request, view):
+        return super().has_permission(request, view) and request.user.role in ['admin', 'center']
