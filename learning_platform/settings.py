@@ -148,19 +148,33 @@ TEMPLATES = [
 WSGI_APPLICATION = 'learning_platform.wsgi.application'
 
 
+
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': env("DB_NAME", default="mydatabase"),
-        'USER': env("DB_USER", default="myuser"),
-        'PASSWORD': env("DB_PASSWORD", default="mypassword"),
-        'HOST': env("DB_HOST", default="localhost"),
-        'PORT': env("DB_PORT", default="3306"),
+# Database
+# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
+import dj_database_url
+
+if env("DATABASE_URL", default=None):
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=env("DATABASE_URL"),
+            conn_max_age=600,
+            engine="django.db.backends.mysql"
+        )
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': env("DB_NAME", default="mydatabase"),
+            'USER': env("DB_USER", default="myuser"),
+            'PASSWORD': env("DB_PASSWORD", default="mypassword"),
+            'HOST': env("DB_HOST", default="localhost"),
+            'PORT': env("DB_PORT", default="3306"),
+        }
+    }
 
 
 # Password validation

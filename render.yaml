@@ -25,7 +25,7 @@ services:
       - key: FRONTEND_URL
         value: "https://learning-platform-web.onrender.com"
       - key: BACKEND_URL
-        value: "https://learning-platform-api.onrender.com"
+        value: "https://learning-platform-api-kwp9.onrender.com"
       - key: CLOUDINARY_CLOUD_NAME
         sync: false
       - key: CLOUDINARY_API_KEY
