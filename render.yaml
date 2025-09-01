@@ -43,10 +43,7 @@ services:
         sync: false
       - key: SOCIAL_AUTH_GITHUB_SECRET
         sync: false
-      - key: SOCIAL_AUTH_FACEBOOK_KEY
-        sync: false
-      - key: SOCIAL_AUTH_FACEBOOK_SECRET
-        sync: false
+
     plan: free
     healthCheckPath: /health/
     autoDeploy: true
