@@ -154,14 +154,25 @@ WSGI_APPLICATION = 'learning_platform.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
+
+# Database
+# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 import dj_database_url
 
-if env("DATABASE_URL", default=None):
+db_url = env("DATABASE_URL", default=None)
+if db_url:
+    if db_url.startswith("postgres://") or db_url.startswith("postgresql://"):
+        db_engine = "django.db.backends.postgresql"
+    elif db_url.startswith("mysql://"):
+        db_engine = "django.db.backends.mysql"
+    else:
+        raise ValueError("Unsupported database engine in DATABASE_URL")
+
     DATABASES = {
         'default': dj_database_url.config(
-            default=env("DATABASE_URL"),
+            default=db_url,
             conn_max_age=600,
-            engine="django.db.backends.mysql"
+            engine=db_engine
         )
     }
 else:
