@@ -210,6 +210,33 @@ class AnswerViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPIVi
 class ReviewViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPIView,generics.CreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
 	serializer_class = ReviewSerializer
 	queryset = Review.objects.all()
+	pagination_class = ReviewPagination
+
+	@action(detail=False, methods=['get'], url_path='by-course/(?P<course_id>[^/.]+)')
+	def list_by_course(self, request, course_id=None):
+		# Lấy review gốc (parent_review=None) của course này, phân trang
+		root_reviews = Review.objects.filter(course_id=course_id, parent_review=None).order_by('-created_at')
+		page = self.paginate_queryset(root_reviews)
+		if page is not None:
+			data = self._with_replies(page)
+			return self.get_paginated_response(data)
+		data = self._with_replies(root_reviews)
+		return Response(data)
+
+	def _with_replies(self, reviews):
+		# Lấy tất cả id review gốc
+		root_ids = [r.id for r in reviews]
+		# Lấy tất cả reply review liên quan
+		replies = Review.objects.filter(parent_review_id__in=root_ids).order_by('created_at')
+		reply_map = {}
+		for reply in replies:
+			reply_map.setdefault(reply.parent_review_id, []).append(self.get_serializer(reply).data)
+		result = []
+		for review in reviews:
+			item = self.get_serializer(review).data
+			item['replies'] = reply_map.get(review.id, [])
+			result.append(item)
+		return result
 
 class NotificationViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPIView,generics.CreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
 	serializer_class = NotificationSerializer

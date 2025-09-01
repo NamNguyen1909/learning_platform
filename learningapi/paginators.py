@@ -10,3 +10,8 @@ class CoursePagination(StandardResultsSetPagination):
     page_size = 9
     page_size_query_param = 'limit'
     max_page_size = 100
+
+class ReviewPagination(StandardResultsSetPagination):
+    page_size = 5
+    page_size_query_param = 'limit'
+    max_page_size = 100

@@ -77,10 +77,19 @@ class PaymentSerializer(serializers.ModelSerializer):
 
 class ReviewSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
-    parent_review = serializers.PrimaryKeyRelatedField(read_only=True)
+    parent_review = serializers.PrimaryKeyRelatedField(queryset=Review.objects.all(), required=False, allow_null=True)
     class Meta:
         model = Review
         fields = ['id', 'course', 'user', 'rating', 'comment', 'parent_review', 'created_at']
+        read_only_fields = ['user']
+
+    def create(self, validated_data):
+        request = self.context.get('request')
+        if request and request.user and request.user.is_authenticated:
+            validated_data['user'] = request.user
+        else:
+            raise serializers.ValidationError('Authentication required')
+        return super().create(validated_data)
 
 class NotificationSerializer(serializers.ModelSerializer):
     class Meta:

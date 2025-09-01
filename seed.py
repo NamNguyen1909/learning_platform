@@ -157,16 +157,29 @@ for learner in learners:
             transaction_id=fake.uuid4()
         )
 
-# Tạo Review
+
+# Tạo Review và reply review
 for course in courses:
+    review_objs = []
     for _ in range(random.randint(1, 3)):
         user = random.choice(list(users))
-        Review.objects.create(
+        review = Review.objects.create(
             course=course,
             user=user,
             rating=random.randint(1, 5),
             comment=fake.sentence(nb_words=12)
         )
+        review_objs.append(review)
+        # Tạo reply review cho một số review gốc
+        if random.random() < 0.5:  # 50% review có reply
+            reply_user = random.choice(list(users))
+            Review.objects.create(
+                course=course,
+                user=reply_user,
+                rating=None,
+                comment=fake.sentence(nb_words=10),
+                parent_review=review
+            )
 
 # Tạo Notification
 notifications = []

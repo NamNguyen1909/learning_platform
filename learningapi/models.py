@@ -188,7 +188,7 @@ class Payment(models.Model):
 class Review(models.Model):
 	course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='reviews')
 	user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='course_reviews')
-	rating = models.PositiveIntegerField(validators=[MinValueValidator(0), MaxValueValidator(5)], default=0)
+	rating = models.PositiveIntegerField(validators=[MinValueValidator(0), MaxValueValidator(5)], default=0,null=True, blank=True)
 	comment = models.TextField(null=True, blank=True)
 	parent_review = models.ForeignKey('self', null=True, blank=True, on_delete=models.CASCADE, related_name='replies')
 	created_at = models.DateTimeField(auto_now_add=True)
