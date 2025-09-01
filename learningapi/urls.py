@@ -19,5 +19,7 @@ router.register(r'user-notifications', views.UserNotificationViewSet, basename='
 
 
 urlpatterns = [
+    path('courses/hot/', views.CourseViewSet.as_view({'get': 'hot_courses'}), name='course-hot'),
+    path('courses/suggested/', views.CourseViewSet.as_view({'get': 'suggested_courses'}), name='course-suggested'),
     path('',include(router.urls)),
 ]

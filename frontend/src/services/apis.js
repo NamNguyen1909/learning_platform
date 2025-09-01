@@ -120,11 +120,15 @@ export const endpoints = {
     detail: (id) => `/api/courses/${id}/`,
     register: (id) => `/api/courses/${id}/register/`,
     deactivate: (id) => `/api/courses/${id}/deactivate/`,
+    hot: "/api/courses/hot/",
+    suggested: "/api/courses/suggested/",
   },
+
   tag: {
     list: "/api/tags/",
     detail: (id) => `/api/tags/${id}/`,
   },
+  
   courseProgress: {
     list: "/api/course-progress/",
     detail: (id) => `/api/course-progress/${id}/`,
@@ -189,4 +193,12 @@ export const endpoints = {
 };
 
 // Export axios instance và endpoints để dùng trực tiếp
+
+
+
+// Lấy 5 khoá học hot nhất tuần
+export const getHotCourses = () => api.get(endpoints.course.hot);
+
+// Lấy 5 khoá học gợi ý cho user hiện tại
+export const getSuggestedCourses = () => api.get(endpoints.course.suggested);
 export default api;

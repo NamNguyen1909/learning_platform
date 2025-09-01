@@ -14,6 +14,7 @@ import Header from './components/Header';
 import Footer from './components/Footer';
 import Profile from './pages/Profile';
 import MyCoursesProgress from './pages/MyCoursesProgress';
+import Home from './pages/Home';
 
 // Custom hook: lấy access/refresh token từ URL sau khi social login
 function useSocialAuthToken() {
@@ -44,7 +45,7 @@ const AppContent = () => {
             <>
 
 
-                {/* <Route path="/" element={<Home />} /> */}
+                <Route path="/" element={<Home />} />
                 <Route path="/courses" element={<CourseList />} />
                 <Route path="/courses/:id" element={<CourseDetail />} />
                 <Route path="/my-coursesprogress" element={<MyCoursesProgress />} />

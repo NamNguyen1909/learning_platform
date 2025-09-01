@@ -151,7 +151,7 @@ class CourseViewSet(viewsets.ViewSet,generics.CreateAPIView,generics.UpdateAPIVi
 	def get_permissions(self):
 		if self.action in ['create', 'update', 'partial_update', 'destroy', 'deactivate']:
 			return [CanCURDCourse()]
-		if self.action in ['list', 'retrieve']:
+		if self.action in ['list', 'retrieve','hot_courses']:
 			return [permissions.AllowAny()]
 		return [permissions.IsAuthenticated()]
 
@@ -170,6 +170,41 @@ class CourseViewSet(viewsets.ViewSet,generics.CreateAPIView,generics.UpdateAPIVi
 			return Response({'error': 'Bạn đã đăng ký khóa học này.'}, status=400)
 		CourseProgress.objects.create(learner=user, course=course)
 		return Response({'success': 'Đăng ký khóa học thành công.'})
+
+	@action(detail=False, methods=['get'], url_path='hot')
+	def hot_courses(self, request):
+		from django.utils import timezone
+		from datetime import timedelta
+		from .models import CourseProgress, Course
+		week_ago = timezone.now() - timedelta(days=7)
+		# Đếm số lượt đăng ký mới mỗi khoá học trong tuần
+		hot_courses = (
+			Course.objects.filter(is_active=True, is_published=True)
+			.annotate(new_reg_count=models.Count('course_progress', filter=models.Q(course_progress__enrolled_at__gte=week_ago)))
+			.order_by('-new_reg_count')[:5]
+		)
+		serializer = CourseSerializer(hot_courses, many=True)
+		return Response(serializer.data)
+
+	@action(detail=False, methods=['get'], url_path='suggested')
+	def suggested_courses(self, request):
+		user = request.user
+		if not user.is_authenticated:
+			return Response([], status=200)
+		from .models import CourseProgress, Course, Tag
+		# Lấy các tag của các khoá học user đã học
+		user_courses = Course.objects.filter(course_progress__learner=user)
+		user_tags = Tag.objects.filter(courses__in=user_courses).distinct()
+		# Lấy các khoá học có tag liên quan, loại trừ khoá học user đã học
+		suggested = (
+			Course.objects.filter(tags__in=user_tags, is_active=True, is_published=True)
+			.exclude(course_progress__learner=user)
+			.distinct()
+			.annotate(tag_match_count=models.Count('tags'))
+			.order_by('-tag_match_count', '-created_at')[:5]
+		)
+		serializer = CourseSerializer(suggested, many=True)
+		return Response(serializer.data)
 class TagViewSet(viewsets.ViewSet,generics.ListAPIView,generics.CreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
 	serializer_class = TagSerializer
 	queryset = Tag.objects.all()
