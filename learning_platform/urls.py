@@ -14,7 +14,7 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
-from django import views
+from learningapi.views import health_check
 from django.contrib import admin
 from django.urls import include, path
 from learningapi.views import demo_user_info
@@ -42,7 +42,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
 
     # Health check endpoint (simple)
-    path('health/', views.health_check, name='health-check'),
+        path('health/', health_check, name='health-check'),
 
     #App URLs
     path('api/', include('learningapi.urls')),
