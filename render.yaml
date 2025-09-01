@@ -1,0 +1,69 @@
+services:
+  # Django Backend API
+  - type: web
+    name: learning-platform-api
+    env: python
+    rootDir: learning_platform
+    buildCommand: |
+      pip install -r requirements.txt
+      python manage.py migrate
+      python seed.py
+    startCommand: gunicorn --workers 2 --bind 0.0.0.0:$PORT --timeout 30 --keep-alive 2 --max-requests 1000 --max-requests-jitter 50 learning_platform.wsgi:application
+    envVars:
+      - key: DATABASE_URL
+        value: "<YOUR_NEON_DATABASE_URL>"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DJANGO_SETTINGS_MODULE
+        value: learning_platform.settings
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: "learning-platform-api.onrender.com,learning-platform-web.onrender.com,localhost,127.0.0.1,*.onrender.com"
+      - key: CORS_ALLOWED_ORIGINS
+        value: "https://learning-platform-web.onrender.com"
+      - key: FRONTEND_URL
+        value: "https://learning-platform-web.onrender.com"
+      - key: BACKEND_URL
+        value: "https://learning-platform-api.onrender.com"
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: PYTHON_VERSION
+        value: "3.11.10"
+      # Social login
+      - key: SOCIAL_AUTH_GOOGLE_OAUTH2_KEY
+        sync: false
+      - key: SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET
+        sync: false
+      - key: SOCIAL_AUTH_GITHUB_KEY
+        sync: false
+      - key: SOCIAL_AUTH_GITHUB_SECRET
+        sync: false
+      - key: SOCIAL_AUTH_FACEBOOK_KEY
+        sync: false
+      - key: SOCIAL_AUTH_FACEBOOK_SECRET
+        sync: false
+    plan: free
+    healthCheckPath: /health/
+    autoDeploy: true
+
+  # React Frontend - Node.js Web Service
+  - type: web
+    name: learning-platform-web
+    env: node
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    startCommand: npx serve dist -s -p $PORT
+    plan: free
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: VITE_API_URL
+        value: https://learning-platform-api.onrender.com
+      - key: NODE_VERSION
+        value: "20"
+    autoDeploy: true
