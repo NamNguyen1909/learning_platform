@@ -3,7 +3,7 @@ services:
   - type: web
     name: learning-platform-api
     env: python
-    rootDir: learning_platform
+    rootDir: .
     buildCommand: |
       pip install -r requirements.txt
       python manage.py migrate
