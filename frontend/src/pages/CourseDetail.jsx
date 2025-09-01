@@ -16,6 +16,7 @@ import {
   Avatar,
   IconButton,
   Collapse,
+  Chip,
 } from "@mui/material";
 import SendIcon from "@mui/icons-material/Send";
 import ReplyIcon from "@mui/icons-material/Reply";
@@ -60,6 +61,7 @@ const CourseDetail = () => {
   const [replyForm, setReplyForm] = useState({}); // { [reviewId]: { comment: '' } }
   const [replying, setReplying] = useState({}); // { [reviewId]: true/false }
   const [showReplyBox, setShowReplyBox] = useState({}); // { [reviewId]: true/false }
+  const [currentUser, setCurrentUser] = useState(null);
 
   // --- All hooks must be here, before any return or conditional ---
   useEffect(() => {
@@ -71,6 +73,22 @@ const CourseDetail = () => {
     if (course) fetchReviews(1);
     // eslint-disable-next-line
   }, [course]);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      if (authUtils.isAuthenticated()) {
+        try {
+          const user = await authUtils.getCurrentUser();
+          setCurrentUser(user);
+        } catch {
+          setCurrentUser(null);
+        }
+      } else {
+        setCurrentUser(null);
+      }
+    };
+    fetchUser();
+  }, []);
   // --- End move hooks ---
 
   // Hàm kiểm tra user đã có CourseProgress cho khóa học chưa, trả về true/false và cập nhật state
@@ -83,7 +101,7 @@ const CourseDetail = () => {
       return false;
     }
     try {
-      console.log("Checking course progress for user...", "token:", token);
+      // console.log("Checking course progress for user...", "token:", token);
       const res = await api.get(endpoints.courseProgress.list, {
         params: { course: courseId },
       });
@@ -219,8 +237,6 @@ const CourseDetail = () => {
       .finally(() => setRegistering(false));
   };
 
-
-
   if (loading)
     return (
       <Container maxWidth="lg">
@@ -254,8 +270,11 @@ const CourseDetail = () => {
     }
   };
 
-  // Tạo review mới
-  const handleCreateReview = async () => {
+  // Tạo hoặc cập nhật review (chỉ 1 review/user/course)
+  const myReview = reviews.find(
+    (r) => String(r.user?.id) === String(currentUser?.id)
+  );
+  const handleCreateOrUpdateReview = async () => {
     if (!authUtils.isAuthenticated()) {
       navigate("/login", { state: { from: window.location.pathname } });
       return;
@@ -269,22 +288,59 @@ const CourseDetail = () => {
       return;
     }
     try {
-      await api.post(endpoints.review.create, {
-        course: id,
-        rating: reviewForm.rating,
-        comment: reviewForm.comment,
+      if (myReview) {
+        // Update review
+        await api.put(endpoints.review.update(myReview.id), {
+          course: id,
+          rating: reviewForm.rating,
+          comment: reviewForm.comment,
+        });
+        setSnackbar({
+          open: true,
+          message: "Đã cập nhật đánh giá!",
+          severity: "success",
+        });
+      } else {
+        // Create review
+        await api.post(endpoints.review.create, {
+          course: id,
+          rating: reviewForm.rating,
+          comment: reviewForm.comment,
+        });
+        setSnackbar({
+          open: true,
+          message: "Đã gửi đánh giá!",
+          severity: "success",
+        });
+      }
+      setReviewForm({ rating: 0, comment: "" });
+      fetchReviews(1);
+    } catch (e) {
+      setSnackbar({
+        open: true,
+        message:
+          e?.response?.data?.detail || e?.message || "Gửi đánh giá thất bại.",
+        severity: "error",
+      });
+    }
+  };
+
+  // Xóa review của mình
+  const handleDeleteReview = async () => {
+    if (!myReview) return;
+    try {
+      await api.delete(endpoints.review.delete(myReview.id));
+      setSnackbar({
+        open: true,
+        message: "Đã xóa đánh giá!",
+        severity: "success",
       });
       setReviewForm({ rating: 0, comment: "" });
       fetchReviews(1);
+    } catch (e) {
       setSnackbar({
         open: true,
-        message: "Đã gửi đánh giá!",
-        severity: "success",
-      });
-    } catch {
-      setSnackbar({
-        open: true,
-        message: "Gửi đánh giá thất bại.",
+        message: e?.response?.data?.detail || "Xóa đánh giá thất bại.",
         severity: "error",
       });
     }
@@ -320,10 +376,11 @@ const CourseDetail = () => {
         message: "Đã gửi trả lời!",
         severity: "success",
       });
-    } catch {
+    } catch (e) {
       setSnackbar({
         open: true,
-        message: "Gửi trả lời thất bại.",
+        message:
+          e?.response?.data?.detail || e?.message || "Gửi trả lời thất bại.",
         severity: "error",
       });
     }
@@ -331,9 +388,9 @@ const CourseDetail = () => {
   };
   // Điều kiện được reply: đã đăng nhập và đã mua khóa học
   const canReply = () => authUtils.isAuthenticated() && hasCourseProgress;
-  // Render reply review
-  const renderReplies = (replies, parentId) => (
-    <Box sx={{ pl: 4, mt: 1 }}>
+  // Render reply review (chỉ 1 cấp, không cho reply cho reply review)
+  const renderReplies = (replies, parentId, parentUser) => (
+    <Box sx={{ mt: 1 }}>
       {replies.map((reply) => (
         <Card
           key={reply.id}
@@ -356,46 +413,9 @@ const CourseDetail = () => {
               </Typography>
             </Box>
             <Typography variant="body2" sx={{ mb: 1 }}>
-              {reply.comment}
+              <b>Reply @{parentUser}:</b> {reply.comment}
             </Typography>
-            {/* Reply cho reply */}
-            {canReply() && (
-              <Box>
-                <Button
-                  size="small"
-                  startIcon={<ReplyIcon />}
-                  sx={{ textTransform: "none", fontSize: 13 }}
-                  onClick={() =>
-                    setShowReplyBox((b) => ({ ...b, [reply.id]: !b[reply.id] }))
-                  }
-                >
-                  Trả lời
-                </Button>
-                <Collapse in={!!showReplyBox[reply.id]}>
-                  <Box sx={{ display: "flex", alignItems: "center", mt: 1 }}>
-                    <TextField
-                      size="small"
-                      placeholder="Nhập trả lời..."
-                      value={replyForm[reply.id]?.comment || ""}
-                      onChange={(e) =>
-                        setReplyForm((f) => ({
-                          ...f,
-                          [reply.id]: { comment: e.target.value },
-                        }))
-                      }
-                      sx={{ flex: 1, mr: 1 }}
-                    />
-                    <IconButton
-                      color="primary"
-                      onClick={() => handleCreateReply(reply.id)}
-                      disabled={replying[reply.id]}
-                    >
-                      <SendIcon />
-                    </IconButton>
-                  </Box>
-                </Collapse>
-              </Box>
-            )}
+            {/* Không cho reply tiếp cho reply */}
           </CardContent>
         </Card>
       ))}
@@ -404,6 +424,13 @@ const CourseDetail = () => {
   // Render review gốc và reply
   const renderReviews = () => (
     <Box sx={{ mt: 4 }}>
+      {/* DEBUG LOGS */}
+      {/* {console.log("[DEBUG] currentUser:", currentUser)}
+      {console.log("[DEBUG] reviews:", reviews)}
+      {reviews.forEach((r) =>
+        console.log("[DEBUG] review user id:", r.user?.id, "full:", r)
+      )}
+      {console.log("[DEBUG] myReview:", myReview)} */}
       <Typography variant="h5" fontWeight={600} gutterBottom>
         Đánh giá khóa học
       </Typography>
@@ -420,7 +447,7 @@ const CourseDetail = () => {
           {reviews.map((review) => (
             <Card
               key={review.id}
-              sx={{ mb: 2, bgcolor: "#fffbe6", borderRadius: 2 }}
+              sx={{ mb: 2, bgcolor: "background.paper", borderRadius: 2, boxShadow: 2, border: '1px solid #e3eaf2' }}
             >
               <CardContent sx={{ pb: 1 }}>
                 <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
@@ -503,7 +530,11 @@ const CourseDetail = () => {
                 {/* Hiển thị reply review */}
                 {review.replies &&
                   review.replies.length > 0 &&
-                  renderReplies(review.replies, review.id)}
+                  renderReplies(
+                    review.replies,
+                    review.id,
+                    review.user?.full_name || review.user?.username
+                  )}
               </CardContent>
             </Card>
           ))}
@@ -521,15 +552,17 @@ const CourseDetail = () => {
           )}
         </Box>
       )}
-      {/* Form tạo review mới */}
+      {/* Form tạo/sửa review */}
       {authUtils.isAuthenticated() &&
         hasCourseProgress &&
         courseProgress &&
-        courseProgress.progress >= 50 && (
+        (courseProgress.progress >= 50 || myReview) && (
           <Card sx={{ mt: 3, bgcolor: "#f5f5f5", borderRadius: 2 }}>
             <CardContent>
               <Typography variant="h6" fontWeight={600} gutterBottom>
-                Viết đánh giá của bạn
+                {myReview
+                  ? "Chỉnh sửa đánh giá của bạn"
+                  : "Viết đánh giá của bạn"}
               </Typography>
               <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
                 <Rating
@@ -554,10 +587,20 @@ const CourseDetail = () => {
                   variant="contained"
                   color="primary"
                   sx={{ ml: 2, height: 48 }}
-                  onClick={handleCreateReview}
+                  onClick={handleCreateOrUpdateReview}
                 >
-                  Gửi
+                  {myReview ? "Cập nhật" : "Gửi"}
                 </Button>
+                {myReview && (
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    sx={{ ml: 2, height: 48 }}
+                    onClick={handleDeleteReview}
+                  >
+                    Xóa
+                  </Button>
+                )}
               </Box>
             </CardContent>
           </Card>
@@ -617,19 +660,24 @@ const CourseDetail = () => {
           </Typography>
           {/* Hiển thị rating trung bình */}
           {reviews.length > 0 && (
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+            <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
               <Rating
                 value={
-                  reviews.reduce((sum, r) => sum + (r.rating || 0), 0) / reviews.length
+                  reviews.reduce((sum, r) => sum + (r.rating || 0), 0) /
+                  reviews.length
                 }
                 precision={0.1}
                 readOnly
                 size="medium"
                 sx={{ mr: 1 }}
               />
-              <Typography variant="body2" sx={{ color: '#8B4513', fontWeight: 600 }}>
+              <Typography
+                variant="body2"
+                sx={{ color: "#8B4513", fontWeight: 600 }}
+              >
                 {(
-                  reviews.reduce((sum, r) => sum + (r.rating || 0), 0) / reviews.length
+                  reviews.reduce((sum, r) => sum + (r.rating || 0), 0) /
+                  reviews.length
                 ).toFixed(1)}
                 /5 ({reviews.length} đánh giá)
               </Typography>
@@ -648,9 +696,21 @@ const CourseDetail = () => {
           </Typography>
           {course.instructor && (
             <Typography variant="body2" sx={{ mb: 2 }}>
-              Giảng viên:{" "}
+              Giảng viên: {" "}
               <b>{course.instructor.full_name || course.instructor.username}</b>
             </Typography>
+          )}
+          {course.tags && course.tags.length > 0 && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
+                Tags:
+              </Typography>
+              <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+                {course.tags.map((tag, idx) => (
+                  <Chip key={idx} label={tag} color="primary" variant="outlined" />
+                ))}
+              </Box>
+            </Box>
           )}
           {hasCourseProgress && courseProgress ? (
             <Button

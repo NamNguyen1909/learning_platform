@@ -28,9 +28,9 @@ class TagAdmin(admin.ModelAdmin):
 
 # Course Admin
 class CourseAdmin(admin.ModelAdmin):
-	list_display = ['id', 'title', 'instructor', 'price', 'is_active', 'created_at', 'image_view']
+	list_display = ['id', 'title', 'instructor', 'price', 'is_active', 'is_published', 'created_at', 'image_view']
 	search_fields = ['title', 'description']
-	list_filter = ['is_active', 'created_at', 'instructor']
+	list_filter = ['is_active', 'is_published', 'created_at', 'instructor']
 	readonly_fields = ['image_view', 'created_at', 'updated_at']
 	filter_horizontal = ['tags']
 	list_per_page = 20

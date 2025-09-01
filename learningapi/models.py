@@ -72,6 +72,7 @@ class Course(models.Model):
 	start_date = models.DateField(null=True, blank=True)
 	end_date = models.DateField(null=True, blank=True)
 	is_active = models.BooleanField(default=True)
+	is_published = models.BooleanField(default=False)
 	tags = models.ManyToManyField('Tag', blank=True, related_name='courses')
 	created_at = models.DateTimeField(auto_now_add=True)
 	updated_at = models.DateTimeField(auto_now=True)

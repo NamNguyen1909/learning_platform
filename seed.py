@@ -77,7 +77,8 @@ for _ in range(15):
         description=description,
         instructor=instructor,
         price=round(random.uniform(10, 200), 2),
-        is_active=True
+        is_active=True,
+        is_published=random.choice([True, False])
     )
     course.tags.set(random.sample(tags, k=min(2, len(tags))))
     courses.append(course)
@@ -161,7 +162,7 @@ for learner in learners:
 # Tạo Review và reply review
 for course in courses:
     review_objs = []
-    for _ in range(random.randint(1, 3)):
+    for _ in range(random.randint(14, 26)):
         user = random.choice(list(users))
         review = Review.objects.create(
             course=course,

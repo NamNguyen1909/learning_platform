@@ -9,6 +9,7 @@ from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework import permissions
 from rest_framework.decorators import action
 from django.db import models
+from rest_framework.exceptions import ValidationError
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
@@ -183,7 +184,11 @@ class CourseProgressViewSet(viewsets.ViewSet,generics.ListAPIView,generics.Retri
 		user = self.request.user
 		# Chỉ trả về progress của learner hiện tại
 		if user.is_authenticated and hasattr(user, 'role') and user.role == 'learner':
-			return CourseProgress.objects.filter(learner=user).order_by('-updated_at')
+			qs = CourseProgress.objects.filter(learner=user)
+			course_id = self.request.query_params.get('course')
+			if course_id:
+				qs = qs.filter(course_id=course_id)
+			return qs.order_by('-updated_at')
 		# Nếu không phải learner, trả về rỗng (hoặc có thể raise PermissionDenied)
 		return CourseProgress.objects.none()
 
@@ -211,6 +216,63 @@ class ReviewViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPIVi
 	serializer_class = ReviewSerializer
 	queryset = Review.objects.all()
 	pagination_class = ReviewPagination
+
+	def get_permissions(self):
+		if self.action in ['create', 'update', 'partial_update', 'destroy']:
+			return [IsLearner()]
+		return [permissions.AllowAny()]
+
+	def get_queryset(self):
+		# Chỉ cho phép user xem review của course hoặc của mình
+		qs = super().get_queryset()
+		return qs
+
+	def perform_update(self, serializer):
+		# Chỉ cho phép update review của mình
+		instance = self.get_object()
+		if instance.user != self.request.user:
+			from rest_framework.exceptions import PermissionDenied
+			raise PermissionDenied('Bạn chỉ được sửa review của chính mình.')
+		serializer.save()
+
+	def destroy(self, request, *args, **kwargs):
+		instance = self.get_object()
+		if instance.user != request.user:
+			from rest_framework.exceptions import PermissionDenied
+			raise PermissionDenied('Bạn chỉ được xóa review của chính mình.')
+		# Nếu là review gốc, xóa luôn các reply con
+		if instance.parent_review is None:
+			instance.replies.all().delete()
+		return super().destroy(request, *args, **kwargs)
+
+	def perform_create(self, serializer):
+		user = self.request.user
+		course = self.request.data.get('course')
+		parent_review = self.request.data.get('parent_review')
+		print(f"[REVIEW] user={user.id} course={course} parent_review={parent_review} data={self.request.data}")
+		# Xác định review gốc hay reply: parent_review là None, '', 'null', 'None' => review gốc
+		if not parent_review or str(parent_review).lower() in ['', 'null', 'none']:
+			print(f"[REVIEW] Xử lý review gốc cho user={user.id} course={course}")
+			if Review.objects.filter(user=user, course_id=course, parent_review=None).exists():
+				print(f"[REVIEW] User {user.id} đã review course {course} rồi!")
+				raise ValidationError({'detail': 'Bạn chỉ được review 1 lần cho mỗi khóa học. Hãy chỉnh sửa hoặc xóa review cũ.'})
+		else:
+			print(f"[REVIEW] Xử lý reply cho user={user.id} course={course} parent_review={parent_review}")
+			from django.utils import timezone
+			from datetime import timedelta
+			today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+			tomorrow_start = today_start + timedelta(days=1)
+			reply_qs = Review.objects.filter(user=user, course_id=course, parent_review__isnull=False, created_at__gte=today_start, created_at__lt=tomorrow_start)
+			reply_count = reply_qs.count()
+			print(f"[REVIEW] reply_count={reply_count} (user={user.id}, course={course}, today_start={today_start}, tomorrow_start={tomorrow_start})")
+			print(f"[REVIEW] reply_qs_ids={[r.id for r in reply_qs]}")
+			for r in reply_qs:
+				print(f"[REVIEW] reply_obj id={r.id} created_at={r.created_at} user={r.user_id} course={r.course_id} parent_review={r.parent_review_id}")
+			if reply_count >= 3:
+				print(f"[REVIEW] User {user.id} vượt quá giới hạn reply cho course {course} trong ngày!")
+				raise ValidationError({'detail': 'Bạn chỉ được reply tối đa 3 lần/ngày cho mỗi khóa học.'})
+		serializer.save()
+
 
 	@action(detail=False, methods=['get'], url_path='by-course/(?P<course_id>[^/.]+)')
 	def list_by_course(self, request, course_id=None):
