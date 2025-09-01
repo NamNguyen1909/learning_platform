@@ -1,3 +1,4 @@
+from django.http import JsonResponse
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -10,6 +11,15 @@ from rest_framework import permissions
 from rest_framework.decorators import action
 from django.db import models
 from rest_framework.exceptions import ValidationError
+from django.views.decorators.http import require_http_methods
+from django.views.decorators.csrf import csrf_exempt
+
+# Health check endpoint for Render deployment
+@csrf_exempt
+@require_http_methods(["GET", "HEAD", "OPTIONS"])
+def health_check(request):
+	"""Simple health check endpoint for Render.com deployment"""
+	return JsonResponse({'status': 'healthy'}, status=200)
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])

@@ -38,7 +38,7 @@ AUTH_USER_MODEL = 'learningapi.User'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env("DEBUG", default="False") == "True"
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["*"]
 
 
 # Application definition
@@ -148,19 +148,44 @@ TEMPLATES = [
 WSGI_APPLICATION = 'learning_platform.wsgi.application'
 
 
+
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': env("DB_NAME", default="mydatabase"),
-        'USER': env("DB_USER", default="myuser"),
-        'PASSWORD': env("DB_PASSWORD", default="mypassword"),
-        'HOST': env("DB_HOST", default="localhost"),
-        'PORT': env("DB_PORT", default="3306"),
+# Database
+# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
+
+# Database
+# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
+import dj_database_url
+
+db_url = env("DATABASE_URL", default=None)
+if db_url:
+    if db_url.startswith("postgres://") or db_url.startswith("postgresql://"):
+        db_engine = "django.db.backends.postgresql"
+    elif db_url.startswith("mysql://"):
+        db_engine = "django.db.backends.mysql"
+    else:
+        raise ValueError("Unsupported database engine in DATABASE_URL")
+
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=db_url,
+            conn_max_age=600,
+            engine=db_engine
+        )
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': env("DB_NAME", default="mydatabase"),
+            'USER': env("DB_USER", default="myuser"),
+            'PASSWORD': env("DB_PASSWORD", default="mypassword"),
+            'HOST': env("DB_HOST", default="localhost"),
+            'PORT': env("DB_PORT", default="3306"),
+        }
+    }
 
 
 # Password validation
