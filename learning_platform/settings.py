@@ -38,7 +38,7 @@ AUTH_USER_MODEL = 'learningapi.User'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env("DEBUG", default="False") == "True"
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["*"]
 
 
 # Application definition

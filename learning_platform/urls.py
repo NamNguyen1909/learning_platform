@@ -42,7 +42,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
 
     # Health check endpoint (simple)
-        path('health/', health_check, name='health-check'),
+    path('health/', health_check, name='health-check'),
 
     #App URLs
     path('api/', include('learningapi.urls')),
