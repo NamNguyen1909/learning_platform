@@ -13,6 +13,7 @@ djangorestframework==3.16.1
 djangorestframework_simplejwt==5.5.1
 drf-yasg==1.21.10
 Faker==37.6.0
+gunicorn==23.0.0
 idna==3.10
 inflection==0.5.1
 jwcrypto==1.5.6
