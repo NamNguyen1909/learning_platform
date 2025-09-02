@@ -74,8 +74,14 @@ class CourseStatisticsView(APIView):
 		]
 		# Số lượng tài liệu/video mỗi khóa học
 		doc_counts = Document.objects.values('course').annotate(count=models.Count('id'))
+		doc_counts_data = [
+			{
+				'course': Course.objects.get(id=d['course']).title if d['course'] else '',
+				'count': d['count']
+			} for d in doc_counts
+		]
 		# Doanh thu từng khóa học (chỉ tính payment đã thanh toán)
-		payments = Payment.objects.filter(is_paid=True).values('course').annotate(total=models.Sum('amount'))
+		payments = Payment.objects.filter(is_paid=True).values('course').annotate(total=models.Sum('amount')).order_by('-total')
 		return Response({
 			'total_courses': total_courses,
 			'active_courses': active_courses,
@@ -86,7 +92,7 @@ class CourseStatisticsView(APIView):
 			'course_registrations': list(course_registrations),
 			'completion_rate': completion_rate,
 			'top_courses': top_courses_data,
-			'doc_counts': list(doc_counts),
+			'doc_counts': doc_counts_data,
 			'payments': list(payments),
 		}, status=status.HTTP_200_OK)
 
@@ -97,7 +103,7 @@ class InstructorStatisticsView(APIView):
 		active_instructors = User.objects.filter(role="instructor", is_active=True).count()
 		locked_instructors = User.objects.filter(role="instructor", is_active=False).count()
 		# Số lượng khóa học mỗi giảng viên
-		instructor_courses = User.objects.filter(role="instructor").annotate(course_count=models.Count('courses'))
+		instructor_courses = User.objects.filter(role="instructor").annotate(course_count=models.Count('courses')).order_by('-course_count')
 		# Số lượng học viên đã dạy qua từng giảng viên
 		instructor_learners = [
 			{
@@ -107,6 +113,7 @@ class InstructorStatisticsView(APIView):
 				'learner_count': CourseProgress.objects.filter(course__instructor=ins).count(),
 			} for ins in User.objects.filter(role="instructor")
 		]
+		instructor_learners = sorted(instructor_learners, key=lambda x: x['learner_count'], reverse=True)
 		# Đánh giá trung bình các khóa học do giảng viên phụ trách
 		instructor_ratings = [
 			{
@@ -115,8 +122,7 @@ class InstructorStatisticsView(APIView):
 				'avg_rating': round(Review.objects.filter(course__instructor=ins).aggregate(avg=models.Avg('rating'))['avg'] or 0, 2)
 			} for ins in User.objects.filter(role="instructor")
 		]
-		# Top giảng viên nhiều học viên nhất
-		top_instructors = sorted(instructor_learners, key=lambda x: x['learner_count'], reverse=True)[:5]
+		instructor_ratings = sorted(instructor_ratings, key=lambda x: x['avg_rating'], reverse=True)
 		return Response({
 			'total_instructors': total_instructors,
 			'active_instructors': active_instructors,
@@ -127,7 +133,6 @@ class InstructorStatisticsView(APIView):
 			],
 			'instructor_learners': instructor_learners,
 			'instructor_ratings': instructor_ratings,
-			'top_instructors': top_instructors,
 		}, status=status.HTTP_200_OK)
 
 class LearnerStatisticsView(APIView):
