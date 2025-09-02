@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { Container, Grid, Box, Typography, Paper, CircularProgress, Tabs, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Alert } from "@mui/material";
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CancelIcon from '@mui/icons-material/Cancel';
 import { getCourseStatistics, getInstructorStatistics, getLearnerStatistics } from "../services/apis";
 
-function StatTable({ title, columns, rows }) {
+
+function StatTable({ title, columns, rows, customRender }) {
   return (
     <Box mb={3}>
       <Typography variant="h6" gutterBottom>{title}</Typography>
@@ -19,7 +22,11 @@ function StatTable({ title, columns, rows }) {
             {rows.map((row, idx) => (
               <TableRow key={idx}>
                 {columns.map((col) => (
-                  <TableCell key={col}>{row[col]}</TableCell>
+                  <TableCell key={col}>
+                    {customRender && customRender[col]
+                      ? customRender[col](row[col], row)
+                      : row[col]}
+                  </TableCell>
                 ))}
               </TableRow>
             ))}
@@ -99,29 +106,43 @@ export default function Statistics() {
                   <Typography variant="subtitle1">Tỷ lệ hoàn thành: <b>{courseStats.completion_rate}%</b></Typography>
                 </Box>
                 <Tabs value={courseSubTab} onChange={(_, v) => setCourseSubTab(v)} sx={{ mb: 2 }}>
-                  <Tab label="Top 5 khóa học nhiều học viên" />
+                  <Tab label="Thống kê khóa học theo số lượng học viên" />
                   <Tab label="Số lượng tài liệu/video" />
                   <Tab label="Doanh thu từng khóa học" />
                 </Tabs>
                 {courseSubTab === 0 && (
                   <StatTable
-                    title="Top 5 khóa học nhiều học viên nhất"
-                    columns={["title", "reg_count", "price", "is_active", "is_published"]}
-                    rows={courseStats.top_courses}
+                    title="Thống kê khóa học theo số lượng học viên"
+                    columns={["Tên khóa học", "Số lượng học viên", "Giá tiền", "Trạng thái"]}
+                    rows={courseStats.course_stats.map(row => ({
+                      "Tên khóa học": row.title,
+                      "Số lượng học viên": row.reg_count,
+                      "Giá tiền": row.price,
+                      "Trạng thái": row.is_active
+                    }))}
+                    customRender={{
+                      "Trạng thái": (val) => val ? <CheckCircleIcon color="success" titleAccess="Đang hoạt động"/> : <CancelIcon color="error" titleAccess="Đã đóng"/>
+                    }}
                   />
                 )}
                 {courseSubTab === 1 && (
                   <StatTable
                     title="Số lượng tài liệu/video mỗi khóa học"
-                    columns={["course", "count"]}
-                    rows={courseStats.doc_counts}
+                    columns={["Tên khóa học", "Số lượng tài liệu/video"]}
+                    rows={courseStats.doc_counts.map(row => ({
+                      "Tên khóa học": row.course,
+                      "Số lượng tài liệu/video": row.count
+                    }))}
                   />
                 )}
                 {courseSubTab === 2 && (
                   <StatTable
                     title="Doanh thu từng khóa học"
-                    columns={["course", "total"]}
-                    rows={courseStats.payments}
+                    columns={["Tên khóa học", "Tổng doanh thu"]}
+                    rows={courseStats.payments.map(row => ({
+                      "Tên khóa học": row.course,
+                      "Tổng doanh thu": row.total
+                    }))}
                   />
                 )}
               </Paper>
@@ -144,22 +165,35 @@ export default function Statistics() {
                 {instructorSubTab === 0 && (
                   <StatTable
                     title="Số lượng khóa học mỗi giảng viên"
-                    columns={["id", "username", "course_count"]}
-                    rows={instructorStats.instructor_courses}
+                    columns={["Mã giảng viên", "Tên giảng viên", "Số lượng khóa học"]}
+                    rows={instructorStats.instructor_courses.map(row => ({
+                      "Mã giảng viên": row.id,
+                      "Tên giảng viên": row.username,
+                      "Số lượng khóa học": row.course_count
+                    }))}
                   />
                 )}
                 {instructorSubTab === 1 && (
                   <StatTable
                     title="Số lượng học viên đã dạy qua từng giảng viên"
-                    columns={["id", "username", "learner_count"]}
-                    rows={instructorStats.instructor_learners}
+                    columns={["Mã giảng viên", "Tên giảng viên", "Số lượng khóa học", "Số lượng học viên"]}
+                    rows={instructorStats.instructor_learners.map(row => ({
+                      "Mã giảng viên": row.id,
+                      "Tên giảng viên": row.username,
+                      "Số lượng khóa học": row.course_count,
+                      "Số lượng học viên": row.learner_count
+                    }))}
                   />
                 )}
                 {instructorSubTab === 2 && (
                   <StatTable
                     title="Đánh giá trung bình các khóa học do giảng viên phụ trách"
-                    columns={["id", "username", "avg_rating"]}
-                    rows={instructorStats.instructor_ratings}
+                    columns={["Mã giảng viên", "Tên giảng viên", "Đánh giá trung bình"]}
+                    rows={instructorStats.instructor_ratings.map(row => ({
+                      "Mã giảng viên": row.id,
+                      "Tên giảng viên": row.username,
+                      "Đánh giá trung bình": row.avg_rating
+                    }))}
                   />
                 )}
               </Paper>
@@ -182,15 +216,29 @@ export default function Statistics() {
                 {learnerSubTab === 0 && (
                   <StatTable
                     title="Thống kê từng học viên"
-                    columns={["id", "username", "registered", "completed", "in_progress", "review_count", "question_count"]}
-                    rows={learnerStats.learner_stats}
+                    columns={["Mã học viên", "Tên học viên", "Số khóa học đã đăng ký", "Số khóa học đã hoàn thành", "Đang học", "Số lượng review", "Số lượng câu hỏi"]}
+                    rows={learnerStats.learner_stats.map(row => ({
+                      "Mã học viên": row.id,
+                      "Tên học viên": row.username,
+                      "Số khóa học đã đăng ký": row.registered,
+                      "Số khóa học đã hoàn thành": row.completed,
+                      "Đang học": row.in_progress,
+                      "Số lượng review": row.review_count,
+                      "Số lượng câu hỏi": row.question_count
+                    }))}
                   />
                 )}
                 {learnerSubTab === 1 && (
                   <StatTable
                     title="Top học viên tích cực"
-                    columns={["id", "username", "completed", "review_count", "question_count"]}
-                    rows={learnerStats.top_learners}
+                    columns={["Mã học viên", "Tên học viên", "Số khóa học đã hoàn thành", "Số lượng review", "Số lượng câu hỏi"]}
+                    rows={learnerStats.top_learners.map(row => ({
+                      "Mã học viên": row.id,
+                      "Tên học viên": row.username,
+                      "Số khóa học đã hoàn thành": row.completed,
+                      "Số lượng review": row.review_count,
+                      "Số lượng câu hỏi": row.question_count
+                    }))}
                   />
                 )}
               </Paper>

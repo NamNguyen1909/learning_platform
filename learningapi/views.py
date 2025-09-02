@@ -38,15 +38,14 @@ def demo_user_info(request):
 # --- STATISTICS API ---
 from rest_framework.views import APIView
 from .models import Course, User, CourseProgress, Payment, Review, Document
-from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 
-class IsAdminOrCenter(permissions.BasePermission):
-	def has_permission(self, request, view):
-		return request.user.is_authenticated and request.user.role in ["admin", "center"]
+
 
 class CourseStatisticsView(APIView):
 	permission_classes = [IsAdminOrCenter]
+	parser_classes = [StatisticsPagination]
+
 	def get(self, request):
 		total_courses = Course.objects.count()
 		active_courses = Course.objects.filter(is_active=True).count()
@@ -60,17 +59,16 @@ class CourseStatisticsView(APIView):
 		completed = CourseProgress.objects.filter(is_completed=True).count()
 		total_progress = CourseProgress.objects.count()
 		completion_rate = round(completed / total_progress * 100, 2) if total_progress else 0
-		# Top 5 khóa học nhiều học viên nhất
-		top_courses = Course.objects.annotate(reg_count=models.Count('course_progress')).order_by('-reg_count')[:5]
-		top_courses_data = [
+		# Thống kê tất cả khóa học kèm số lượng học viên, sort giảm dần
+		course_stats = Course.objects.annotate(reg_count=models.Count('course_progress')).order_by('-reg_count')
+		course_stats_data = [
 			{
 				'id': c.id,
 				'title': c.title,
-				'reg_count': c.course_progress.count(),
+				'reg_count': c.reg_count,
 				'price': float(c.price),
 				'is_active': c.is_active,
-				'is_published': c.is_published,
-			} for c in top_courses
+			} for c in course_stats
 		]
 		# Số lượng tài liệu/video mỗi khóa học
 		doc_counts = Document.objects.values('course').annotate(count=models.Count('id'))
@@ -91,13 +89,15 @@ class CourseStatisticsView(APIView):
 			'free_courses': free_courses,
 			'course_registrations': list(course_registrations),
 			'completion_rate': completion_rate,
-			'top_courses': top_courses_data,
+			'course_stats': course_stats_data,
 			'doc_counts': doc_counts_data,
 			'payments': list(payments),
 		}, status=status.HTTP_200_OK)
 
 class InstructorStatisticsView(APIView):
 	permission_classes = [IsAdminOrCenter]
+	parser_classes = [StatisticsPagination]
+
 	def get(self, request):
 		total_instructors = User.objects.filter(role="instructor").count()
 		active_instructors = User.objects.filter(role="instructor", is_active=True).count()
@@ -137,6 +137,8 @@ class InstructorStatisticsView(APIView):
 
 class LearnerStatisticsView(APIView):
 	permission_classes = [IsAdminOrCenter]
+	parser_classes = [StatisticsPagination]
+	
 	def get(self, request):
 		total_learners = User.objects.filter(role="learner").count()
 		active_learners = User.objects.filter(role="learner", is_active=True).count()
@@ -182,7 +184,7 @@ class UserViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.UpdateAPIVi
 	def get_permissions(self):
 		# Chỉ user role center mới được quản lý instructor/learner
 		if self.action in ['list_instructors', 'list_learners', 'deactivate_user', 'activate_user', 'partial_update', 'update']:
-			return [IsAdminorCenter()]
+			return [IsAdminOrCenter()]
 		if self.action in ['list']:
 			return [IsAdmin()]
 		if self.action in ['create']:
