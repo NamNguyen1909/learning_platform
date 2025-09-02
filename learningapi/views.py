@@ -53,14 +53,16 @@ class CourseStatisticsView(APIView):
 		published_courses = Course.objects.filter(is_published=True).count()
 		paid_courses = Course.objects.filter(price__gt=0).count()
 		free_courses = Course.objects.filter(price=0).count()
-		# Số lượng học viên đăng ký từng khóa học
 		course_registrations = CourseProgress.objects.values('course').annotate(count=models.Count('id'))
-		# Tỷ lệ hoàn thành
 		completed = CourseProgress.objects.filter(is_completed=True).count()
 		total_progress = CourseProgress.objects.count()
 		completion_rate = round(completed / total_progress * 100, 2) if total_progress else 0
-		# Thống kê tất cả khóa học kèm số lượng học viên, sort giảm dần
-		course_stats = Course.objects.annotate(reg_count=models.Count('course_progress')).order_by('-reg_count')
+
+		# Phân trang cho course_stats
+		course_stats_qs = Course.objects.annotate(reg_count=models.Count('course_progress')).order_by('-reg_count')
+		paginator = StatisticsPagination()
+		paginator.page_query_param = 'page'
+		paged_course_stats = paginator.paginate_queryset(course_stats_qs, request)
 		course_stats_data = [
 			{
 				'id': c.id,
@@ -68,19 +70,30 @@ class CourseStatisticsView(APIView):
 				'reg_count': c.reg_count,
 				'price': float(c.price),
 				'is_active': c.is_active,
-			} for c in course_stats
+			} for c in paged_course_stats
 		]
-		# Số lượng tài liệu/video mỗi khóa học
-		doc_counts = Document.objects.values('course').annotate(count=models.Count('id'))
+
+		# Phân trang cho doc_counts
+		doc_counts_qs = Document.objects.values('course').annotate(count=models.Count('id')).order_by('-count')
+		paginator_doc = StatisticsPagination()
+		paginator_doc.page_query_param = 'doc_page'
+		paged_doc_counts = paginator_doc.paginate_queryset(doc_counts_qs, request)
 		doc_counts_data = [
 			{
 				'course': Course.objects.get(id=d['course']).title if d['course'] else '',
 				'count': d['count']
-			} for d in doc_counts
+			} for d in paged_doc_counts
 		]
-		# Doanh thu từng khóa học (chỉ tính payment đã thanh toán)
-		payments = Payment.objects.filter(is_paid=True).values('course').annotate(total=models.Sum('amount')).order_by('-total')
-		return Response({
+
+		# Phân trang cho payments
+		payments_qs = Payment.objects.filter(is_paid=True).values('course').annotate(total=models.Sum('amount')).order_by('-total')
+		paginator_pay = StatisticsPagination()
+		paginator_pay.page_query_param = 'pay_page'
+		paged_payments = paginator_pay.paginate_queryset(payments_qs, request)
+		payments_data = list(paged_payments)
+
+		# Trả về dữ liệu phân trang cho course_stats
+		response_data = {
 			'total_courses': total_courses,
 			'active_courses': active_courses,
 			'draft_courses': draft_courses,
@@ -89,10 +102,22 @@ class CourseStatisticsView(APIView):
 			'free_courses': free_courses,
 			'course_registrations': list(course_registrations),
 			'completion_rate': completion_rate,
-			'course_stats': course_stats_data,
-			'doc_counts': doc_counts_data,
-			'payments': list(payments),
-		}, status=status.HTTP_200_OK)
+		}
+		paginated = paginator.get_paginated_response(course_stats_data)
+		for k, v in paginated.data.items():
+			response_data['course_stats_' + k if k != 'results' else 'course_stats'] = v
+
+		# Phân trang cho doc_counts
+		paginated_doc = paginator_doc.get_paginated_response(doc_counts_data)
+		for k, v in paginated_doc.data.items():
+			response_data['doc_counts_' + k if k != 'results' else 'doc_counts'] = v
+
+		# Phân trang cho payments
+		paginated_pay = paginator_pay.get_paginated_response(payments_data)
+		for k, v in paginated_pay.data.items():
+			response_data['payments_' + k if k != 'results' else 'payments'] = v
+
+		return Response(response_data, status=status.HTTP_200_OK)
 
 class InstructorStatisticsView(APIView):
 	permission_classes = [IsAdminOrCenter]
@@ -102,48 +127,80 @@ class InstructorStatisticsView(APIView):
 		total_instructors = User.objects.filter(role="instructor").count()
 		active_instructors = User.objects.filter(role="instructor", is_active=True).count()
 		locked_instructors = User.objects.filter(role="instructor", is_active=False).count()
-		# Số lượng khóa học mỗi giảng viên
-		instructor_courses = User.objects.filter(role="instructor").annotate(course_count=models.Count('courses')).order_by('-course_count')
-		# Số lượng học viên đã dạy qua từng giảng viên
-		instructor_learners = [
+
+		# Phân trang cho instructor_courses
+		instructor_courses_qs = User.objects.filter(role="instructor").annotate(course_count=models.Count('courses')).order_by('-course_count')
+		paginator = StatisticsPagination()
+		paged_instructor_courses = paginator.paginate_queryset(instructor_courses_qs, request)
+		instructor_courses_data = [
+			{'id': ins.id, 'username': ins.username, 'course_count': ins.course_count}
+			for ins in paged_instructor_courses
+		]
+
+		# Phân trang cho instructor_learners
+		instructor_learners_qs = User.objects.filter(role="instructor").annotate(
+			course_count=models.Count('courses'),
+			learner_count=models.Count('courses__course_progress')
+		).order_by('-learner_count')
+		paginator_learners = StatisticsPagination()
+		paged_instructor_learners = paginator_learners.paginate_queryset(instructor_learners_qs, request)
+		instructor_learners_data = [
 			{
 				'id': ins.id,
 				'username': ins.username,
-				'course_count': ins.courses.count(),
-				'learner_count': CourseProgress.objects.filter(course__instructor=ins).count(),
-			} for ins in User.objects.filter(role="instructor")
+				'course_count': ins.course_count,
+				'learner_count': ins.learner_count,
+			} for ins in paged_instructor_learners
 		]
-		instructor_learners = sorted(instructor_learners, key=lambda x: x['learner_count'], reverse=True)
-		# Đánh giá trung bình các khóa học do giảng viên phụ trách
-		instructor_ratings = [
+
+		# Phân trang cho instructor_ratings
+		instructor_ratings_qs = User.objects.filter(role="instructor").annotate(
+			avg_rating=models.Avg('courses__reviews__rating')
+		).order_by('-avg_rating')
+		paginator_ratings = StatisticsPagination()
+		paged_instructor_ratings = paginator_ratings.paginate_queryset(instructor_ratings_qs, request)
+		instructor_ratings_data = [
 			{
 				'id': ins.id,
 				'username': ins.username,
-				'avg_rating': round(Review.objects.filter(course__instructor=ins).aggregate(avg=models.Avg('rating'))['avg'] or 0, 2)
-			} for ins in User.objects.filter(role="instructor")
+				'avg_rating': round(ins.avg_rating or 0, 2)
+			} for ins in paged_instructor_ratings
 		]
-		instructor_ratings = sorted(instructor_ratings, key=lambda x: x['avg_rating'], reverse=True)
-		return Response({
+
+		response_data = {
 			'total_instructors': total_instructors,
 			'active_instructors': active_instructors,
 			'locked_instructors': locked_instructors,
-			'instructor_courses': [
-				{'id': ins.id, 'username': ins.username, 'course_count': ins.course_count}
-				for ins in instructor_courses
-			],
-			'instructor_learners': instructor_learners,
-			'instructor_ratings': instructor_ratings,
-		}, status=status.HTTP_200_OK)
+		}
+		paginated = paginator.get_paginated_response(instructor_courses_data)
+		for k, v in paginated.data.items():
+			response_data['instructor_courses_' + k if k != 'results' else 'instructor_courses'] = v
+
+		# Phân trang cho instructor_learners
+		paginated_learners = paginator_learners.get_paginated_response(instructor_learners_data)
+		for k, v in paginated_learners.data.items():
+			response_data['instructor_learners_' + k if k != 'results' else 'instructor_learners'] = v
+
+		# Phân trang cho instructor_ratings
+		paginated_ratings = paginator_ratings.get_paginated_response(instructor_ratings_data)
+		for k, v in paginated_ratings.data.items():
+			response_data['instructor_ratings_' + k if k != 'results' else 'instructor_ratings'] = v
+
+		return Response(response_data, status=status.HTTP_200_OK)
 
 class LearnerStatisticsView(APIView):
 	permission_classes = [IsAdminOrCenter]
 	parser_classes = [StatisticsPagination]
-	
+
 	def get(self, request):
 		total_learners = User.objects.filter(role="learner").count()
 		active_learners = User.objects.filter(role="learner", is_active=True).count()
 		locked_learners = User.objects.filter(role="learner", is_active=False).count()
-		# Số lượng khóa học đã đăng ký, hoàn thành, đang học
+
+		# Phân trang cho learner_stats (explicit ordering)
+		learner_qs = User.objects.filter(role="learner").order_by('-id')
+		paginator = StatisticsPagination()
+		paged_learners = paginator.paginate_queryset(learner_qs, request)
 		learner_stats = [
 			{
 				'id': l.id,
@@ -153,22 +210,50 @@ class LearnerStatisticsView(APIView):
 				'in_progress': l.course_progress.filter(is_completed=False).count(),
 				'review_count': l.course_reviews.count(),
 				'question_count': l.questions.count(),
-			} for l in User.objects.filter(role="learner")
+			} for l in paged_learners
 		]
 		# Tỷ lệ hoàn thành trung bình
 		total_completed = sum(l['completed'] for l in learner_stats)
 		total_registered = sum(l['registered'] for l in learner_stats)
 		avg_completion = round(total_completed / total_registered * 100, 2) if total_registered else 0
-		# Top học viên tích cực
-		top_learners = sorted(learner_stats, key=lambda x: (x['completed'], x['review_count'], x['question_count']), reverse=True)[:5]
-		return Response({
+		# Phân trang cho top_learners
+		top_learners_qs = User.objects.filter(role="learner").annotate(
+			registered=models.Count('course_progress'),
+			completed=models.Count('course_progress', filter=models.Q(course_progress__is_completed=True)),
+			in_progress=models.Count('course_progress', filter=models.Q(course_progress__is_completed=False)),
+			review_count=models.Count('course_reviews'),
+			question_count=models.Count('questions')
+		).order_by('-completed', '-review_count', '-question_count', '-id')
+		paginator_top = StatisticsPagination()
+		paged_top_learners = paginator_top.paginate_queryset(top_learners_qs, request)
+		top_learners_data = [
+			{
+				'id': l.id,
+				'username': l.username,
+				'registered': l.registered,
+				'completed': l.completed,
+				'in_progress': l.in_progress,
+				'review_count': l.review_count,
+				'question_count': l.question_count,
+			} for l in paged_top_learners
+		]
+
+		response_data = {
 			'total_learners': total_learners,
 			'active_learners': active_learners,
 			'locked_learners': locked_learners,
-			'learner_stats': learner_stats,
 			'avg_completion': avg_completion,
-			'top_learners': top_learners,
-		}, status=status.HTTP_200_OK)
+		}
+		paginated = paginator.get_paginated_response(learner_stats)
+		for k, v in paginated.data.items():
+			response_data['learner_stats_' + k if k != 'results' else 'learner_stats'] = v
+
+		# Phân trang cho top_learners
+		paginated_top = paginator_top.get_paginated_response(top_learners_data)
+		for k, v in paginated_top.data.items():
+			response_data['top_learners_' + k if k != 'results' else 'top_learners'] = v
+
+		return Response(response_data, status=status.HTTP_200_OK)
 
 
 class UserViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.UpdateAPIView, generics.ListAPIView):

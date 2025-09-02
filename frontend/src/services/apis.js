@@ -207,7 +207,16 @@ export const getHotCourses = () => api.get(endpoints.course.hot);
 // Lấy 5 khoá học gợi ý cho user hiện tại
 export const getSuggestedCourses = () => api.get(endpoints.course.suggested);
 // Thống kê cho admin/center
-export const getCourseStatistics = () => api.get(endpoints.statistics.courses);
-export const getInstructorStatistics = () => api.get(endpoints.statistics.instructors);
-export const getLearnerStatistics = () => api.get(endpoints.statistics.learners);
+export const getCourseStatistics = (params = {}) => {
+  const query = new URLSearchParams(params).toString();
+  return api.get(`${endpoints.statistics.courses}${query ? '?' + query : ''}`);
+};
+export const getInstructorStatistics = (params = {}) => {
+  const query = new URLSearchParams(params).toString();
+  return api.get(`${endpoints.statistics.instructors}${query ? '?' + query : ''}`);
+};
+export const getLearnerStatistics = (params = {}) => {
+  const query = new URLSearchParams(params).toString();
+  return api.get(`${endpoints.statistics.learners}${query ? '?' + query : ''}`);
+};
 export default api;

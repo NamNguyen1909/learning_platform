@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { Container, Grid, Box, Typography, Paper, CircularProgress, Tabs, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Alert } from "@mui/material";
+import { Container, Grid, Box, Typography, Paper, CircularProgress, Tabs, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Alert, Button } from "@mui/material";
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import { getCourseStatistics, getInstructorStatistics, getLearnerStatistics } from "../services/apis";
 
 
-function StatTable({ title, columns, rows, customRender }) {
+function StatTable({ title, columns, rows, customRender, onLoadMore, loading, hasNext }) {
   return (
     <Box mb={3}>
       <Typography variant="h6" gutterBottom>{title}</Typography>
@@ -33,6 +33,17 @@ function StatTable({ title, columns, rows, customRender }) {
           </TableBody>
         </Table>
       </TableContainer>
+      {hasNext && (
+        <Box sx={{ textAlign: "center", mt: 2 }}>
+          <Button
+            variant="outlined"
+            onClick={onLoadMore}
+            disabled={loading}
+          >
+            {loading ? "Đang tải..." : "Xem thêm"}
+          </Button>
+        </Box>
+      )}
     </Box>
   );
 }
@@ -51,24 +62,232 @@ export default function Statistics() {
   const [instructorSubTab, setInstructorSubTab] = useState(0);
   const [learnerSubTab, setLearnerSubTab] = useState(0);
 
+  // Pagination states for courseStats sub-sections
+  const [courseStatsPage, setCourseStatsPage] = useState(1);
+  const [courseStatsLoadingMore, setCourseStatsLoadingMore] = useState(false);
+  const [courseStatsHasNext, setCourseStatsHasNext] = useState(false);
+
+  const [docCountsPage, setDocCountsPage] = useState(1);
+  const [docCountsLoadingMore, setDocCountsLoadingMore] = useState(false);
+  const [docCountsHasNext, setDocCountsHasNext] = useState(false);
+
+  const [paymentsPage, setPaymentsPage] = useState(1);
+  const [paymentsLoadingMore, setPaymentsLoadingMore] = useState(false);
+  const [paymentsHasNext, setPaymentsHasNext] = useState(false);
+
+  // Pagination states for instructorStats sub-sections
+  const [instructorCoursesPage, setInstructorCoursesPage] = useState(1);
+  const [instructorCoursesLoadingMore, setInstructorCoursesLoadingMore] = useState(false);
+  const [instructorCoursesHasNext, setInstructorCoursesHasNext] = useState(false);
+
+  const [instructorLearnersPage, setInstructorLearnersPage] = useState(1);
+  const [instructorLearnersLoadingMore, setInstructorLearnersLoadingMore] = useState(false);
+  const [instructorLearnersHasNext, setInstructorLearnersHasNext] = useState(false);
+
+  const [instructorRatingsPage, setInstructorRatingsPage] = useState(1);
+  const [instructorRatingsLoadingMore, setInstructorRatingsLoadingMore] = useState(false);
+  const [instructorRatingsHasNext, setInstructorRatingsHasNext] = useState(false);
+
+  // Pagination states for learnerStats sub-sections
+  const [learnerStatsPage, setLearnerStatsPage] = useState(1);
+  const [learnerStatsLoadingMore, setLearnerStatsLoadingMore] = useState(false);
+  const [learnerStatsHasNext, setLearnerStatsHasNext] = useState(false);
+
+  const [topLearnersPage, setTopLearnersPage] = useState(1);
+  const [topLearnersLoadingMore, setTopLearnersLoadingMore] = useState(false);
+  const [topLearnersHasNext, setTopLearnersHasNext] = useState(false);
+
   useEffect(() => {
     setLoading(true);
     setError("");
     Promise.all([
-      getCourseStatistics(),
-      getInstructorStatistics(),
-      getLearnerStatistics(),
+      getCourseStatistics({ page: 1 }),
+      getInstructorStatistics({ page: 1 }),
+      getLearnerStatistics({ page: 1 }),
     ])
       .then(([courseRes, instructorRes, learnerRes]) => {
         setCourseStats(courseRes.data);
+        setCourseStatsHasNext(!!courseRes.data.course_stats_next);
+        setCourseStatsPage(1);
+        setDocCountsHasNext(!!courseRes.data.doc_counts_next);
+        setDocCountsPage(1);
+        setPaymentsHasNext(!!courseRes.data.payments_next);
+        setPaymentsPage(1);
+
         setInstructorStats(instructorRes.data);
+        setInstructorCoursesHasNext(!!instructorRes.data.instructor_courses_next);
+        setInstructorCoursesPage(1);
+        setInstructorLearnersHasNext(!!instructorRes.data.instructor_learners_next);
+        setInstructorLearnersPage(1);
+        setInstructorRatingsHasNext(!!instructorRes.data.instructor_ratings_next);
+        setInstructorRatingsPage(1);
+
         setLearnerStats(learnerRes.data);
+        setLearnerStatsHasNext(!!learnerRes.data.learner_stats_next);
+        setLearnerStatsPage(1);
+        setTopLearnersHasNext(!!learnerRes.data.top_learners_next);
+        setTopLearnersPage(1);
       })
       .catch((err) => {
         setError("Không thể tải dữ liệu thống kê. Vui lòng thử lại.");
       })
       .finally(() => setLoading(false));
   }, []);
+
+  // Load more functions for courseStats sub-sections
+  const loadMoreCourseStats = async () => {
+    if (!courseStatsHasNext || courseStatsLoadingMore) return;
+    setCourseStatsLoadingMore(true);
+    try {
+      const nextPage = courseStatsPage + 1;
+      const res = await getCourseStatistics({ page: nextPage });
+      setCourseStats(prev => ({
+        ...prev,
+        course_stats: [...prev.course_stats, ...res.data.course_stats]
+      }));
+      setCourseStatsHasNext(!!res.data.course_stats_next);
+      setCourseStatsPage(nextPage);
+    } catch (err) {
+      console.error("Error loading more course stats:", err);
+    } finally {
+      setCourseStatsLoadingMore(false);
+    }
+  };
+
+  const loadMoreDocCounts = async () => {
+    if (!docCountsHasNext || docCountsLoadingMore) return;
+    setDocCountsLoadingMore(true);
+    try {
+      const nextPage = docCountsPage + 1;
+      const res = await getCourseStatistics({ doc_page: nextPage });
+      setCourseStats(prev => ({
+        ...prev,
+        doc_counts: [...prev.doc_counts, ...res.data.doc_counts]
+      }));
+      setDocCountsHasNext(!!res.data.doc_counts_next);
+      setDocCountsPage(nextPage);
+    } catch (err) {
+      console.error("Error loading more doc counts:", err);
+    } finally {
+      setDocCountsLoadingMore(false);
+    }
+  };
+
+  const loadMorePayments = async () => {
+    if (!paymentsHasNext || paymentsLoadingMore) return;
+    setPaymentsLoadingMore(true);
+    try {
+      const nextPage = paymentsPage + 1;
+      const res = await getCourseStatistics({ pay_page: nextPage });
+      setCourseStats(prev => ({
+        ...prev,
+        payments: [...prev.payments, ...res.data.payments]
+      }));
+      setPaymentsHasNext(!!res.data.payments_next);
+      setPaymentsPage(nextPage);
+    } catch (err) {
+      console.error("Error loading more payments:", err);
+    } finally {
+      setPaymentsLoadingMore(false);
+    }
+  };
+
+  // Load more functions for instructorStats sub-sections
+  const loadMoreInstructorCourses = async () => {
+    if (!instructorCoursesHasNext || instructorCoursesLoadingMore) return;
+    setInstructorCoursesLoadingMore(true);
+    try {
+      const nextPage = instructorCoursesPage + 1;
+      const res = await getInstructorStatistics({ page: nextPage });
+      setInstructorStats(prev => ({
+        ...prev,
+        instructor_courses: [...prev.instructor_courses, ...res.data.instructor_courses]
+      }));
+      setInstructorCoursesHasNext(!!res.data.instructor_courses_next);
+      setInstructorCoursesPage(nextPage);
+    } catch (err) {
+      console.error("Error loading more instructor courses:", err);
+    } finally {
+      setInstructorCoursesLoadingMore(false);
+    }
+  };
+
+  const loadMoreInstructorLearners = async () => {
+    if (!instructorLearnersHasNext || instructorLearnersLoadingMore) return;
+    setInstructorLearnersLoadingMore(true);
+    try {
+      const nextPage = instructorLearnersPage + 1;
+      const res = await getInstructorStatistics({ page: nextPage });
+      setInstructorStats(prev => ({
+        ...prev,
+        instructor_learners: [...prev.instructor_learners, ...res.data.instructor_learners]
+      }));
+      setInstructorLearnersHasNext(!!res.data.instructor_learners_next);
+      setInstructorLearnersPage(nextPage);
+    } catch (err) {
+      console.error("Error loading more instructor learners:", err);
+    } finally {
+      setInstructorLearnersLoadingMore(false);
+    }
+  };
+
+  const loadMoreInstructorRatings = async () => {
+    if (!instructorRatingsHasNext || instructorRatingsLoadingMore) return;
+    setInstructorRatingsLoadingMore(true);
+    try {
+      const nextPage = instructorRatingsPage + 1;
+      const res = await getInstructorStatistics({ page: nextPage });
+      setInstructorStats(prev => ({
+        ...prev,
+        instructor_ratings: [...prev.instructor_ratings, ...res.data.instructor_ratings]
+      }));
+      setInstructorRatingsHasNext(!!res.data.instructor_ratings_next);
+      setInstructorRatingsPage(nextPage);
+    } catch (err) {
+      console.error("Error loading more instructor ratings:", err);
+    } finally {
+      setInstructorRatingsLoadingMore(false);
+    }
+  };
+
+  // Load more functions for learnerStats sub-sections
+  const loadMoreLearnerStats = async () => {
+    if (!learnerStatsHasNext || learnerStatsLoadingMore) return;
+    setLearnerStatsLoadingMore(true);
+    try {
+      const nextPage = learnerStatsPage + 1;
+      const res = await getLearnerStatistics({ page: nextPage });
+      setLearnerStats(prev => ({
+        ...prev,
+        learner_stats: [...prev.learner_stats, ...res.data.learner_stats]
+      }));
+      setLearnerStatsHasNext(!!res.data.learner_stats_next);
+      setLearnerStatsPage(nextPage);
+    } catch (err) {
+      console.error("Error loading more learner stats:", err);
+    } finally {
+      setLearnerStatsLoadingMore(false);
+    }
+  };
+
+  const loadMoreTopLearners = async () => {
+    if (!topLearnersHasNext || topLearnersLoadingMore) return;
+    setTopLearnersLoadingMore(true);
+    try {
+      const nextPage = topLearnersPage + 1;
+      const res = await getLearnerStatistics({ page: nextPage });
+      setLearnerStats(prev => ({
+        ...prev,
+        top_learners: [...prev.top_learners, ...res.data.top_learners]
+      }));
+      setTopLearnersHasNext(!!res.data.top_learners_next);
+      setTopLearnersPage(nextPage);
+    } catch (err) {
+      console.error("Error loading more top learners:", err);
+    } finally {
+      setTopLearnersLoadingMore(false);
+    }
+  };
 
   return (
     <Container maxWidth="lg">
@@ -95,12 +314,12 @@ export default function Statistics() {
               <Paper sx={{ p: 3 }}>
                 <Typography variant="h6" mb={2}>Tổng quan khóa học</Typography>
                 <Grid container spacing={2}>
-                  <Grid Size={{xs:6, sm:4, md:2}}><b>Tổng số:</b> {courseStats.total_courses}</Grid>
-                  <Grid Size={{xs:6, sm:4, md:2}}><b>Đang hoạt động:</b> {courseStats.active_courses}</Grid>
-                  <Grid Size={{xs:6, sm:4, md:2}}><b>Nháp:</b> {courseStats.draft_courses}</Grid>
-                  <Grid Size={{xs:6, sm:4, md:2}}><b>Đã publish:</b> {courseStats.published_courses}</Grid>
-                  <Grid Size={{xs:6, sm:4, md:2}}><b>Miễn phí:</b> {courseStats.free_courses}</Grid>
-                  <Grid Size={{xs:6, sm:4, md:2}}><b>Có phí:</b> {courseStats.paid_courses}</Grid>
+                  <Grid size={{xs:6, sm:4, md:2}}><b>Tổng số:</b> {courseStats.total_courses}</Grid>
+                  <Grid size={{xs:6, sm:4, md:2}}><b>Đang hoạt động:</b> {courseStats.active_courses}</Grid>
+                  <Grid size={{xs:6, sm:4, md:2}}><b>Nháp:</b> {courseStats.draft_courses}</Grid>
+                  <Grid size={{xs:6, sm:4, md:2}}><b>Đã publish:</b> {courseStats.published_courses}</Grid>
+                  <Grid size={{xs:6, sm:4, md:2}}><b>Miễn phí:</b> {courseStats.free_courses}</Grid>
+                  <Grid size={{xs:6, sm:4, md:2}}><b>Có phí:</b> {courseStats.paid_courses}</Grid>
                 </Grid>
                 <Box mt={2}>
                   <Typography variant="subtitle1">Tỷ lệ hoàn thành: <b>{courseStats.completion_rate}%</b></Typography>
@@ -123,6 +342,9 @@ export default function Statistics() {
                     customRender={{
                       "Trạng thái": (val) => val ? <CheckCircleIcon color="success" titleAccess="Đang hoạt động"/> : <CancelIcon color="error" titleAccess="Đã đóng"/>
                     }}
+                    onLoadMore={loadMoreCourseStats}
+                    loading={courseStatsLoadingMore}
+                    hasNext={courseStatsHasNext}
                   />
                 )}
                 {courseSubTab === 1 && (
@@ -133,6 +355,9 @@ export default function Statistics() {
                       "Tên khóa học": row.course,
                       "Số lượng tài liệu/video": row.count
                     }))}
+                    onLoadMore={loadMoreDocCounts}
+                    loading={docCountsLoadingMore}
+                    hasNext={docCountsHasNext}
                   />
                 )}
                 {courseSubTab === 2 && (
@@ -143,6 +368,9 @@ export default function Statistics() {
                       "Tên khóa học": row.course,
                       "Tổng doanh thu": row.total
                     }))}
+                    onLoadMore={loadMorePayments}
+                    loading={paymentsLoadingMore}
+                    hasNext={paymentsHasNext}
                   />
                 )}
               </Paper>
@@ -153,9 +381,9 @@ export default function Statistics() {
               <Paper sx={{ p: 3 }}>
                 <Typography variant="h6" mb={2}>Tổng quan giảng viên</Typography>
                 <Grid container spacing={2}>
-                  <Grid Size={{xs:6, sm:4, md:3}}><b>Tổng số:</b> {instructorStats.total_instructors}</Grid>
-                  <Grid Size={{xs:6, sm:4, md:3}}><b>Đang hoạt động:</b> {instructorStats.active_instructors}</Grid>
-                  <Grid Size={{xs:6, sm:4, md:3}}><b>Bị khóa:</b> {instructorStats.locked_instructors}</Grid>
+                  <Grid size={{xs:6, sm:4, md:3}}><b>Tổng số:</b> {instructorStats.total_instructors}</Grid>
+                  <Grid size={{xs:6, sm:4, md:3}}><b>Đang hoạt động:</b> {instructorStats.active_instructors}</Grid>
+                  <Grid size={{xs:6, sm:4, md:3}}><b>Bị khóa:</b> {instructorStats.locked_instructors}</Grid>
                 </Grid>
                 <Tabs value={instructorSubTab} onChange={(_, v) => setInstructorSubTab(v)} sx={{ mb: 2 }}>
                   <Tab label="Số lượng khóa học" />
@@ -171,6 +399,9 @@ export default function Statistics() {
                       "Tên giảng viên": row.username,
                       "Số lượng khóa học": row.course_count
                     }))}
+                    onLoadMore={loadMoreInstructorCourses}
+                    loading={instructorCoursesLoadingMore}
+                    hasNext={instructorCoursesHasNext}
                   />
                 )}
                 {instructorSubTab === 1 && (
@@ -183,6 +414,9 @@ export default function Statistics() {
                       "Số lượng khóa học": row.course_count,
                       "Số lượng học viên": row.learner_count
                     }))}
+                    onLoadMore={loadMoreInstructorLearners}
+                    loading={instructorLearnersLoadingMore}
+                    hasNext={instructorLearnersHasNext}
                   />
                 )}
                 {instructorSubTab === 2 && (
@@ -194,6 +428,9 @@ export default function Statistics() {
                       "Tên giảng viên": row.username,
                       "Đánh giá trung bình": row.avg_rating
                     }))}
+                    onLoadMore={loadMoreInstructorRatings}
+                    loading={instructorRatingsLoadingMore}
+                    hasNext={instructorRatingsHasNext}
                   />
                 )}
               </Paper>
@@ -204,10 +441,10 @@ export default function Statistics() {
               <Paper sx={{ p: 3 }}>
                 <Typography variant="h6" mb={2}>Tổng quan học viên</Typography>
                 <Grid container spacing={2}>
-                  <Grid Size={{xs:6, sm:4, md:3}}><b>Tổng số:</b> {learnerStats.total_learners}</Grid>
-                  <Grid Size={{xs:6, sm:4, md:3}}><b>Đang hoạt động:</b> {learnerStats.active_learners}</Grid>
-                  <Grid Size={{xs:6, sm:4, md:3}}><b>Bị khóa:</b> {learnerStats.locked_learners}</Grid>
-                  <Grid Size={{xs:6, sm:4, md:3}}><b>Tỷ lệ hoàn thành TB:</b> {learnerStats.avg_completion}%</Grid>
+                  <Grid size={{xs:6, sm:4, md:3}}><b>Tổng số:</b> {learnerStats.total_learners}</Grid>
+                  <Grid size={{xs:6, sm:4, md:3}}><b>Đang hoạt động:</b> {learnerStats.active_learners}</Grid>
+                  <Grid size={{xs:6, sm:4, md:3}}><b>Bị khóa:</b> {learnerStats.locked_learners}</Grid>
+                  <Grid size={{xs:6, sm:4, md:3}}><b>Tỷ lệ hoàn thành TB:</b> {learnerStats.avg_completion}%</Grid>
                 </Grid>
                 <Tabs value={learnerSubTab} onChange={(_, v) => setLearnerSubTab(v)} sx={{ mb: 2 }}>
                   <Tab label="Thống kê từng học viên" />
@@ -226,6 +463,9 @@ export default function Statistics() {
                       "Số lượng review": row.review_count,
                       "Số lượng câu hỏi": row.question_count
                     }))}
+                    onLoadMore={loadMoreLearnerStats}
+                    loading={learnerStatsLoadingMore}
+                    hasNext={learnerStatsHasNext}
                   />
                 )}
                 {learnerSubTab === 1 && (
@@ -239,6 +479,9 @@ export default function Statistics() {
                       "Số lượng review": row.review_count,
                       "Số lượng câu hỏi": row.question_count
                     }))}
+                    onLoadMore={loadMoreTopLearners}
+                    loading={topLearnersLoadingMore}
+                    hasNext={topLearnersHasNext}
                   />
                 )}
               </Paper>
