@@ -32,9 +32,136 @@ def demo_user_info(request):
 		"role": getattr(user, "role", None),
 		"is_authenticated": user.is_authenticated,
 	})
-from django.shortcuts import render
 
 # Create your views here.
+
+# --- STATISTICS API ---
+from rest_framework.views import APIView
+from .models import Course, User, CourseProgress, Payment, Review, Document
+from rest_framework.permissions import IsAuthenticated
+from rest_framework import status
+
+class IsAdminOrCenter(permissions.BasePermission):
+	def has_permission(self, request, view):
+		return request.user.is_authenticated and request.user.role in ["admin", "center"]
+
+class CourseStatisticsView(APIView):
+	permission_classes = [IsAdminOrCenter]
+	def get(self, request):
+		total_courses = Course.objects.count()
+		active_courses = Course.objects.filter(is_active=True).count()
+		draft_courses = Course.objects.filter(is_published=False).count()
+		published_courses = Course.objects.filter(is_published=True).count()
+		paid_courses = Course.objects.filter(price__gt=0).count()
+		free_courses = Course.objects.filter(price=0).count()
+		# Số lượng học viên đăng ký từng khóa học
+		course_registrations = CourseProgress.objects.values('course').annotate(count=models.Count('id'))
+		# Tỷ lệ hoàn thành
+		completed = CourseProgress.objects.filter(is_completed=True).count()
+		total_progress = CourseProgress.objects.count()
+		completion_rate = round(completed / total_progress * 100, 2) if total_progress else 0
+		# Top 5 khóa học nhiều học viên nhất
+		top_courses = Course.objects.annotate(reg_count=models.Count('course_progress')).order_by('-reg_count')[:5]
+		top_courses_data = [
+			{
+				'id': c.id,
+				'title': c.title,
+				'reg_count': c.course_progress.count(),
+				'price': float(c.price),
+				'is_active': c.is_active,
+				'is_published': c.is_published,
+			} for c in top_courses
+		]
+		# Số lượng tài liệu/video mỗi khóa học
+		doc_counts = Document.objects.values('course').annotate(count=models.Count('id'))
+		# Doanh thu từng khóa học (chỉ tính payment đã thanh toán)
+		payments = Payment.objects.filter(is_paid=True).values('course').annotate(total=models.Sum('amount'))
+		return Response({
+			'total_courses': total_courses,
+			'active_courses': active_courses,
+			'draft_courses': draft_courses,
+			'published_courses': published_courses,
+			'paid_courses': paid_courses,
+			'free_courses': free_courses,
+			'course_registrations': list(course_registrations),
+			'completion_rate': completion_rate,
+			'top_courses': top_courses_data,
+			'doc_counts': list(doc_counts),
+			'payments': list(payments),
+		}, status=status.HTTP_200_OK)
+
+class InstructorStatisticsView(APIView):
+	permission_classes = [IsAdminOrCenter]
+	def get(self, request):
+		total_instructors = User.objects.filter(role="instructor").count()
+		active_instructors = User.objects.filter(role="instructor", is_active=True).count()
+		locked_instructors = User.objects.filter(role="instructor", is_active=False).count()
+		# Số lượng khóa học mỗi giảng viên
+		instructor_courses = User.objects.filter(role="instructor").annotate(course_count=models.Count('courses'))
+		# Số lượng học viên đã dạy qua từng giảng viên
+		instructor_learners = [
+			{
+				'id': ins.id,
+				'username': ins.username,
+				'course_count': ins.courses.count(),
+				'learner_count': CourseProgress.objects.filter(course__instructor=ins).count(),
+			} for ins in User.objects.filter(role="instructor")
+		]
+		# Đánh giá trung bình các khóa học do giảng viên phụ trách
+		instructor_ratings = [
+			{
+				'id': ins.id,
+				'username': ins.username,
+				'avg_rating': round(Review.objects.filter(course__instructor=ins).aggregate(avg=models.Avg('rating'))['avg'] or 0, 2)
+			} for ins in User.objects.filter(role="instructor")
+		]
+		# Top giảng viên nhiều học viên nhất
+		top_instructors = sorted(instructor_learners, key=lambda x: x['learner_count'], reverse=True)[:5]
+		return Response({
+			'total_instructors': total_instructors,
+			'active_instructors': active_instructors,
+			'locked_instructors': locked_instructors,
+			'instructor_courses': [
+				{'id': ins.id, 'username': ins.username, 'course_count': ins.course_count}
+				for ins in instructor_courses
+			],
+			'instructor_learners': instructor_learners,
+			'instructor_ratings': instructor_ratings,
+			'top_instructors': top_instructors,
+		}, status=status.HTTP_200_OK)
+
+class LearnerStatisticsView(APIView):
+	permission_classes = [IsAdminOrCenter]
+	def get(self, request):
+		total_learners = User.objects.filter(role="learner").count()
+		active_learners = User.objects.filter(role="learner", is_active=True).count()
+		locked_learners = User.objects.filter(role="learner", is_active=False).count()
+		# Số lượng khóa học đã đăng ký, hoàn thành, đang học
+		learner_stats = [
+			{
+				'id': l.id,
+				'username': l.username,
+				'registered': l.course_progress.count(),
+				'completed': l.course_progress.filter(is_completed=True).count(),
+				'in_progress': l.course_progress.filter(is_completed=False).count(),
+				'review_count': l.course_reviews.count(),
+				'question_count': l.questions.count(),
+			} for l in User.objects.filter(role="learner")
+		]
+		# Tỷ lệ hoàn thành trung bình
+		total_completed = sum(l['completed'] for l in learner_stats)
+		total_registered = sum(l['registered'] for l in learner_stats)
+		avg_completion = round(total_completed / total_registered * 100, 2) if total_registered else 0
+		# Top học viên tích cực
+		top_learners = sorted(learner_stats, key=lambda x: (x['completed'], x['review_count'], x['question_count']), reverse=True)[:5]
+		return Response({
+			'total_learners': total_learners,
+			'active_learners': active_learners,
+			'locked_learners': locked_learners,
+			'learner_stats': learner_stats,
+			'avg_completion': avg_completion,
+			'top_learners': top_learners,
+		}, status=status.HTTP_200_OK)
 
 
 class UserViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.UpdateAPIView, generics.ListAPIView):

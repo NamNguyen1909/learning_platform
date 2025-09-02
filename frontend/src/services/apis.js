@@ -123,6 +123,11 @@ export const endpoints = {
     hot: "/api/courses/hot/",
     suggested: "/api/courses/suggested/",
   },
+  statistics: {
+    courses: "/api/statistics/courses/",
+    instructors: "/api/statistics/instructors/",
+    learners: "/api/statistics/learners/",
+  },
 
   tag: {
     list: "/api/tags/",
@@ -201,4 +206,8 @@ export const getHotCourses = () => api.get(endpoints.course.hot);
 
 // Lấy 5 khoá học gợi ý cho user hiện tại
 export const getSuggestedCourses = () => api.get(endpoints.course.suggested);
+// Thống kê cho admin/center
+export const getCourseStatistics = () => api.get(endpoints.statistics.courses);
+export const getInstructorStatistics = () => api.get(endpoints.statistics.instructors);
+export const getLearnerStatistics = () => api.get(endpoints.statistics.learners);
 export default api;

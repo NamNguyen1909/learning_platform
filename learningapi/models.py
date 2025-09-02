@@ -71,8 +71,8 @@ class Course(models.Model):
 	price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], default=0)
 	start_date = models.DateField(null=True, blank=True)
 	end_date = models.DateField(null=True, blank=True)
-	is_active = models.BooleanField(default=True)
-	is_published = models.BooleanField(default=False)
+	is_active = models.BooleanField(default=True) # thể hiện còn hoạt động/còn có thể đăng ký học không
+	is_published = models.BooleanField(default=False) #giảng viên khi tạo có thể lưu nháp hoặc công khai 
 	tags = models.ManyToManyField('Tag', blank=True, related_name='courses')
 	created_at = models.DateTimeField(auto_now_add=True)
 	updated_at = models.DateTimeField(auto_now=True)

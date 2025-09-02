@@ -40,6 +40,7 @@ const menuItemsByRole = {
     { text: 'Quản lý giảng viên', icon: <School />, path: '/instructors-management' },
     { text: 'Quản lý học viên', icon: <People />, path: '/learners-management' },
     { text: 'Quản lý trung tâm', icon: <School />, path: '/centers-management' },
+    { text: 'Thống kê hệ thống', icon: <Dashboard />, path: '/statistics' },
     { text: 'AI Tutor', icon: <Chat />, path: '/ai-tutor' },
   ],
   center: [
@@ -47,6 +48,7 @@ const menuItemsByRole = {
     { text: 'Danh sách khóa học', icon: <Book />, path: '/courses' },
     { text: 'Quản lý giảng viên', icon: <School />, path: '/instructors-management' },
     { text: 'Quản lý học viên', icon: <People />, path: '/learners-management' },
+    { text: 'Thống kê hệ thống', icon: <Dashboard />, path: '/statistics' },
     { text: 'AI Tutor', icon: <Chat />, path: '/ai-tutor' },
   ],
   instructor: [
