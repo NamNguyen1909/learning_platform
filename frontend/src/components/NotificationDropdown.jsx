@@ -32,6 +32,8 @@ import {
   Error,
   MarkEmailRead,
   Delete,
+  AccessTime,
+  Refresh,
 } from '@mui/icons-material';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -260,14 +262,14 @@ const NotificationDropdown = ({ notificationCount, onNotificationUpdate, onRefre
   // Icon theo loại notification
   const getNotificationIcon = (type) => {
     switch (type) {
-      case 'booking_confirmation':
-        return <CheckCircle color="success" />;
       case 'payment_success':
-        return <CheckCircle color="primary" />;
+        return <CheckCircle color="success" />;
       case 'warning':
         return <Warning color="warning" />;
-      case 'error':
-        return <Error color="error" />;
+      case 'reminder':
+        return <AccessTime color="secondary" />;
+      case 'update':
+        return <Refresh color="primary" />;
       default:
         return <Info color="info" />;
     }
@@ -394,7 +396,7 @@ const NotificationDropdown = ({ notificationCount, onNotificationUpdate, onRefre
                     onClick={() => !notification.is_read && markAsRead(notification.id)}
                   >
                     <ListItemAvatar>
-                      <Avatar sx={{ width: 40, height: 40, bgcolor: 'primary.light' }}>
+                      <Avatar sx={{ width: 40, height: 40, bgcolor: 'background.paper' }}>
                         {getNotificationIcon(notification.notification?.notification_type || notification.notification_type)}
                       </Avatar>
                     </ListItemAvatar>

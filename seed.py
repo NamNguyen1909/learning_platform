@@ -189,7 +189,7 @@ for course in courses:
     for _ in range(random.randint(20, 25)):
         notification = Notification.objects.create(
             course=course,
-            notification_type=random.choice(['reminder', 'update']),
+            notification_type=random.choice(['payment_success','warning','reminder', 'update']),
             title=fake.sentence(nb_words=5),
             message=fake.paragraph(nb_sentences=2)
         )

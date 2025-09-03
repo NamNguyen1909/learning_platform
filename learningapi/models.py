@@ -200,6 +200,8 @@ class Review(models.Model):
 # Notification Model
 class Notification(models.Model):
 	NOTIFICATION_TYPES = (
+		('payment_success', 'Payment Success'),
+		('warning', 'Warning'),
 		('reminder', 'Reminder'),
 		('update', 'Update'),
 	)
