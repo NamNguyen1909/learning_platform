@@ -30,8 +30,9 @@ import AccountCircle from '@mui/icons-material/AccountCircle';
 import { useNavigate, useLocation } from 'react-router-dom';
 import NotificationDropdown from './NotificationDropdown';
 import auth from '../services/auth';
+import AdminPanelSettings from '@mui/icons-material/AdminPanelSettings';
 
-const menuItemsByRole = {
+const fullMenuItemsByRole = {
   admin: [
     { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
     { text: 'Quản lý khóa học', icon: <Book />, path: '/courses' },
@@ -41,6 +42,7 @@ const menuItemsByRole = {
     { text: 'Quản lý học viên', icon: <People />, path: '/learners-management' },
     { text: 'Quản lý trung tâm', icon: <School />, path: '/centers-management' },
     { text: 'Thống kê hệ thống', icon: <Dashboard />, path: '/statistics' },
+    { text: 'Django Admin', icon: <AdminPanelSettings />, path: `${import.meta.env.VITE_API_URL}/admin`, external: true },
     { text: 'AI Tutor', icon: <Chat />, path: '/ai-tutor' },
   ],
   center: [
@@ -67,6 +69,18 @@ const menuItemsByRole = {
     { text: 'Trang chủ', icon: <School />, path: '/' },
     { text: 'Khóa học', icon: <Book />, path: '/courses' },
   ],
+};
+
+const menuItemsByRole = {
+  admin: [
+    { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
+  ],
+  center: [
+    { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
+  ],
+  instructor: fullMenuItemsByRole.instructor,
+  learner: fullMenuItemsByRole.learner,
+  guest: fullMenuItemsByRole.guest,
 };
 
 const Header = () => {
@@ -111,10 +125,14 @@ const Header = () => {
   const handleCloseUserMenu = () => setAnchorElUser(null);
   const handleDrawerToggle = () => setMobileOpen(!mobileOpen);
 
-  const handleNavigation = (path) => {
-    navigate(path);
-    setMobileOpen(false);
-    handleCloseUserMenu();
+  const handleNavigation = (path, external = false) => {
+    if (external) {
+      window.open(path, '_blank');
+    } else {
+      navigate(path);
+      setMobileOpen(false);
+      handleCloseUserMenu();
+    }
   };
 
   const handleLogout = async () => {
@@ -132,12 +150,15 @@ const Header = () => {
     ? [
         { text: 'Hồ sơ', action: () => handleNavigation('/profile') },
         { text: 'Cài đặt', action: () => handleNavigation('/account-settings') },
+        ...(userRole === 'admin' ? [{ text: 'Django Admin', action: () => window.open(`${import.meta.env.VITE_API_URL}/admin`, '_blank') }] : []),
         { text: 'Đăng xuất', action: handleLogout },
       ]
     : [
         { text: 'Đăng nhập', action: () => handleNavigation('/login') },
         { text: 'Đăng ký', action: () => handleNavigation('/register') },
       ];
+
+  const drawerMenuItems = fullMenuItemsByRole[userRole] || fullMenuItemsByRole.guest;
 
   const drawer = (
     <Box onClick={handleDrawerToggle} sx={{ textAlign: 'center' }}>
@@ -146,10 +167,10 @@ const Header = () => {
       </Typography>
       <Divider />
       <List>
-        {menuItems.map((item) => (
+        {drawerMenuItems.map((item) => (
           <ListItem key={item.text} disablePadding>
             <ListItemButton
-              onClick={() => handleNavigation(item.path)}
+              onClick={() => handleNavigation(item.path, item.external)}
               selected={location.pathname === item.path}
               sx={{
                 '&.Mui-selected': {
@@ -217,7 +238,7 @@ const Header = () => {
             {menuItems.map((item) => (
               <Button
                 key={item.text}
-                onClick={() => handleNavigation(item.path)}
+                onClick={() => handleNavigation(item.path, item.external)}
                 startIcon={item.icon}
                 sx={{
                   my: 2,

@@ -60,7 +60,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: VITE_API_URL
-        value: https://learning-platform-api.onrender.com
+        value: https://learning-platform-api-kwp9.onrender.com
       - key: NODE_VERSION
         value: "20"
     autoDeploy: true
