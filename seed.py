@@ -77,7 +77,7 @@ for _ in range(15):
         title=title,
         description=description,
         instructor=instructor,
-        price=round(random.uniform(10, 200), 2),
+        price=round(random.uniform(100000, 2000000), 2),
         is_active=True,
         is_published=random.choice([True, False])
     )

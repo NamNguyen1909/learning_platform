@@ -170,8 +170,8 @@ class Answer(models.Model):
 # Payment Model
 class Payment(models.Model):
 	PAYMENT_METHOD_CHOICES = (
-		('momo', 'MoMo'),
 		('vnpay', 'VNPay'),
+		('momo', 'MoMo'),
 	)
 	user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='payments')
 	course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='payments')
@@ -201,6 +201,8 @@ class Review(models.Model):
 class Notification(models.Model):
 	NOTIFICATION_TYPES = (
 		('payment_success', 'Payment Success'),
+		('payment_failed', 'Payment Failed'),
+		('course_enrollment', 'Course Enrollment'),
 		('warning', 'Warning'),
 		('reminder', 'Reminder'),
 		('update', 'Update'),
@@ -213,6 +215,73 @@ class Notification(models.Model):
 
 	def __str__(self):
 		return self.title
+
+	def send_to_user(self, user, send_email=False):
+		"""Send this notification to a specific user"""
+		user_notification = UserNotification.objects.create(
+			user=user,
+			notification=self
+		)
+		if send_email:
+			self._send_email_to_user(user)
+		return user_notification
+
+	def send_to_users(self, users, send_email=False):
+		"""Send this notification to multiple users"""
+		user_notifications = []
+		for user in users:
+			un = UserNotification.objects.create(
+				user=user,
+				notification=self
+			)
+			user_notifications.append(un)
+		if send_email:
+			for user in users:
+				self._send_email_to_user(user)
+		return user_notifications
+
+	def _send_email_to_user(self, user):
+		"""Send email to user with notification details"""
+		from django.core.mail import send_mail
+		from django.conf import settings
+
+		subject = self.title
+		html_message = f"""
+		<html>
+		<head>
+			<style>
+				body {{ font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }}
+				.container {{ max-width: 600px; margin: 20px auto; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }}
+				.header {{ background-color: #007bff; color: #ffffff; padding: 10px; text-align: center; border-radius: 8px 8px 0 0; }}
+				.content {{ padding: 20px; }}
+				.footer {{ text-align: center; padding: 10px; font-size: 12px; color: #666; }}
+			</style>
+		</head>
+		<body>
+			<div class="container">
+				<div class="header">
+					<h2>{self.title}</h2>
+				</div>
+				<div class="content">
+					<p>Xin chào {user.full_name or user.username},</p>
+					<p>{self.message}</p>
+					<p>Trân trọng,<br>Đội ngũ Learning Platform</p>
+				</div>
+				<div class="footer">
+					<p>Nếu bạn có bất kỳ câu hỏi nào, vui lòng liên hệ với chúng tôi.</p>
+				</div>
+			</div>
+		</body>
+		</html>
+		"""
+		send_mail(
+			subject,
+			self.message,  # plain text fallback
+			settings.DEFAULT_FROM_EMAIL,
+			[user.email],
+			html_message=html_message,
+			fail_silently=True
+		)
 
 # UserNotification Model
 class UserNotification(models.Model):

@@ -16,6 +16,7 @@ router.register(r'answers', views.AnswerViewSet, basename='answer')
 router.register(r'reviews', views.ReviewViewSet, basename='review')
 router.register(r'notifications', views.NotificationViewSet, basename='notification')
 router.register(r'user-notifications', views.UserNotificationViewSet, basename='usernotification')
+router.register(r'payments', views.PaymentViewSet, basename='payment')
 
 
 urlpatterns = [
@@ -24,5 +25,8 @@ urlpatterns = [
     path('statistics/courses/', views.CourseStatisticsView.as_view(), name='course-statistics'),
     path('statistics/instructors/', views.InstructorStatisticsView.as_view(), name='instructor-statistics'),
     path('statistics/learners/', views.LearnerStatisticsView.as_view(), name='learner-statistics'),
+
+    path('vnpay/create_payment_url/', views.create_payment_url, name='create-payment-url'),
+    path('vnpay/redirect/', views.vnpay_redirect, name='vnpay-redirect'),
     path('',include(router.urls)),
 ]

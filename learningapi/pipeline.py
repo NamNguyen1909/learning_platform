@@ -11,7 +11,7 @@ def generate_jwt_and_redirect(strategy, backend, user=None, *args, **kwargs):
     refresh_token = str(refresh)
 
     # Lấy frontend URL từ settings hoặc hardcode
-    frontend_url = os.environ.get("FE_URL", "http://localhost:5173/")
+    frontend_url = os.environ.get("FRONTEND_URL", "http://localhost:5173/")
     # Redirect kèm token trên URL
     url = f"{frontend_url}?access={access_token}&refresh={refresh_token}"
     return redirect(url)

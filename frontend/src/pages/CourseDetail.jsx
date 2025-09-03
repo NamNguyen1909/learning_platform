@@ -89,6 +89,36 @@ const CourseDetail = () => {
     };
     fetchUser();
   }, []);
+
+  // Handle payment result from URL parameters
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const paymentResult = urlParams.get('payment_result');
+    const message = urlParams.get('message');
+    const autoRefresh = urlParams.get('auto_refresh');
+
+    if (paymentResult && message) {
+      // Decode the message from URL encoding
+      const decodedMessage = decodeURIComponent(message);
+
+      setSnackbar({
+        open: true,
+        message: decodedMessage,
+        severity: paymentResult === 'success' ? 'success' : 'error',
+      });
+
+      // If auto_refresh is true, reload course progress after showing message
+      if (autoRefresh === 'true' && paymentResult === 'success') {
+        setTimeout(() => {
+          checkCourseProgress(id);
+        }, 1000); // Small delay to ensure message is shown
+      }
+
+      // Clean up URL parameters
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, newUrl);
+    }
+  }, [id]);
   // --- End move hooks ---
 
   // Hàm kiểm tra user đã có CourseProgress cho khóa học chưa, trả về true/false và cập nhật state
@@ -190,30 +220,8 @@ const CourseDetail = () => {
       }
       return;
     }
-    // Chưa đăng ký: đăng ký khóa học
-    setRegistering(true);
-    api
-      .post(endpoints.course.register(id))
-      .then(() => {
-        setSnackbar({
-          open: true,
-          message: "Đăng ký thành công!",
-          severity: "success",
-        });
-        // Cập nhật state tạm thời để disable nút ngay lập tức
-        setHasCourseProgress(true);
-        setCourseProgress({ is_completed: false });
-        // Đăng ký xong, reload lại toàn bộ dữ liệu để cập nhật trạng thái nút và quyền truy cập
-        loadAllData();
-      })
-      .catch(() => {
-        setSnackbar({
-          open: true,
-          message: "Đăng ký thất bại!",
-          severity: "error",
-        });
-      })
-      .finally(() => setRegistering(false));
+    // Chưa đăng ký: chuyển sang trang chọn phương thức thanh toán
+    navigate(`/course-payment/${id}`);
   };
 
   const handleRegister = () => {

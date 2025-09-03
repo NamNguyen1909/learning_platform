@@ -123,6 +123,13 @@ export const endpoints = {
     hot: "/api/courses/hot/",
     suggested: "/api/courses/suggested/",
   },
+  payment: {
+    list: "/api/payments/",
+    create: "/api/payments/",
+    detail: (id) => `/api/payments/${id}/`,
+    createPaymentUrl: "/api/vnpay/create_payment_url/",
+    vnpayRedirect: "/api/vnpay/redirect/",
+  },
   statistics: {
     courses: "/api/statistics/courses/",
     instructors: "/api/statistics/instructors/",
@@ -245,5 +252,9 @@ export const getUnreadNotifications = async () => {
   const response = await api.get(endpoints.userNotification.unread);
   return response.data;
 };
+
+// Payment API functions
+export const createCoursePayment = (data) => api.post(endpoints.payment.create, data);
+export const createPaymentUrl = (params) => api.get(endpoints.payment.createPaymentUrl, { params });
 
 export default api;
