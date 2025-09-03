@@ -194,6 +194,9 @@ export const endpoints = {
     create: "/api/user-notifications/",
     update: (id) => `/api/user-notifications/${id}/`,
     delete: (id) => `/api/user-notifications/${id}/`,
+    markRead: (id) => `/api/user-notifications/${id}/mark_as_read/`,
+    markAllRead: "/api/user-notifications/mark_all_as_read/",
+    unread: "/api/user-notifications/unread/",
   },
 };
 
@@ -219,4 +222,28 @@ export const getLearnerStatistics = (params = {}) => {
   const query = new URLSearchParams(params).toString();
   return api.get(`${endpoints.statistics.learners}${query ? '?' + query : ''}`);
 };
+
+// Notification API functions
+export const fetchNotifications = async (page = 1, limit = 10) => {
+  const response = await api.get(`${endpoints.userNotification.list}?page=${page}&limit=${limit}`);
+  return response.data;
+};
+
+export const markNotificationAsRead = async (notificationId) => {
+  return api.post(endpoints.userNotification.markRead(notificationId));
+};
+
+export const deleteUserNotification = async (userNotificationId) => {
+  return api.delete(endpoints.userNotification.delete(userNotificationId));
+};
+
+export const markAllAsRead = async () => {
+  return api.post(endpoints.userNotification.markAllRead);
+};
+
+export const getUnreadNotifications = async () => {
+  const response = await api.get(endpoints.userNotification.unread);
+  return response.data;
+};
+
 export default api;

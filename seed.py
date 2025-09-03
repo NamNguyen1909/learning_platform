@@ -5,6 +5,7 @@ import django
 django.setup()
 
 from django.utils import timezone
+from django.utils.timezone import localtime
 import random
 from faker import Faker
 from datetime import timedelta
@@ -185,7 +186,7 @@ for course in courses:
 # Tạo Notification
 notifications = []
 for course in courses:
-    for _ in range(random.randint(1, 2)):
+    for _ in range(random.randint(20, 25)):
         notification = Notification.objects.create(
             course=course,
             notification_type=random.choice(['reminder', 'update']),
@@ -196,11 +197,13 @@ for course in courses:
 
 # Tạo UserNotification
 for user in users:
-    for notification in random.sample(notifications, k=min(2, len(notifications))):
+    for notification in random.sample(notifications, k=min(15, len(notifications))):
+        is_read = random.choice([True, False])
         UserNotification.objects.create(
             user=user,
             notification=notification,
-            is_read=random.choice([True, False])
+            is_read=is_read,
+            read_at=localtime(timezone.now()) if is_read else None
         )
 
 # Tạo Note

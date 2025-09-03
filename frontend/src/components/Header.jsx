@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   AppBar,
   Box,
@@ -30,6 +30,8 @@ import AccountCircle from '@mui/icons-material/AccountCircle';
 import { useNavigate, useLocation } from 'react-router-dom';
 import NotificationDropdown from './NotificationDropdown';
 import auth from '../services/auth';
+import { getUnreadNotifications } from '../services/apis';
+import { useUnreadNotificationsPolling } from '../hooks/useSmartPolling';
 import AdminPanelSettings from '@mui/icons-material/AdminPanelSettings';
 
 const fullMenuItemsByRole = {
@@ -95,6 +97,17 @@ const Header = () => {
   const [userRole, setUserRole] = useState('guest');
   const [notifications, setNotifications] = useState(0);
 
+  // Fetch unread notification count
+  const fetchUnreadCount = async () => {
+    try {
+      const response = await getUnreadNotifications();
+      setNotifications(response.unread_count || 0);
+    } catch (error) {
+      console.error('Failed to fetch unread notifications:', error);
+      setNotifications(0);
+    }
+  };
+
   // Kiểm tra login và lấy user info thực tế
   useEffect(() => {
     const fetchUser = async () => {
@@ -103,7 +116,8 @@ const Header = () => {
         if (userInfo) {
           setUser(userInfo);
           setUserRole(userInfo.role || 'learner');
-          setNotifications(2); // TODO: fetch real notification count if needed
+          // Fetch real unread notification count
+          await fetchUnreadCount();
         } else {
           setUser(null);
           setUserRole('guest');
@@ -119,6 +133,9 @@ const Header = () => {
     window.addEventListener('authChanged', fetchUser);
     return () => window.removeEventListener('authChanged', fetchUser);
   }, []);
+
+  // Smart polling for unread notifications - every 30 seconds when user is authenticated
+  useUnreadNotificationsPolling(fetchUnreadCount, !!user);
 
   // Handlers
   const handleOpenUserMenu = (event) => setAnchorElUser(event.currentTarget);
@@ -261,6 +278,7 @@ const Header = () => {
               <NotificationDropdown
                 notificationCount={notifications}
                 onNotificationUpdate={setNotifications}
+                onRefreshUnreadCount={fetchUnreadCount}
               />
             )}
             <Tooltip title="Tài khoản">

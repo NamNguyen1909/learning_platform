@@ -13,6 +13,8 @@ from django.db import models
 from rest_framework.exceptions import ValidationError
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
+from django.utils import timezone
+from django.utils.timezone import localtime
 
 # Health check endpoint for Render deployment
 @csrf_exempt
@@ -564,10 +566,60 @@ class ReviewViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPIVi
 			result.append(item)
 		return result
 
-class NotificationViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPIView,generics.CreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
+class NotificationViewSet(viewsets.ViewSet,generics.ListAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
 	serializer_class = NotificationSerializer
 	queryset = Notification.objects.all()
+	pagination_class = NotificationPagination
 
-class UserNotificationViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPIView,generics.CreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
+class UserNotificationViewSet(viewsets.ViewSet,generics.ListAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
 	serializer_class = UserNotificationSerializer
 	queryset = UserNotification.objects.all()
+	pagination_class = NotificationPagination
+
+	def get_queryset(self):
+		# Chỉ trả về notifications của user hiện tại
+		return UserNotification.objects.filter(user=self.request.user).order_by('-created_at')
+
+	def get_permissions(self):
+		return [permissions.IsAuthenticated()]
+
+	def destroy(self, request, *args, **kwargs):
+		"""Xóa UserNotification và kiểm tra xóa Notification nếu đây là UserNotification cuối cùng"""
+		user_notification = self.get_object()
+		notification = user_notification.notification
+
+		# Xóa UserNotification trước
+		user_notification.delete()
+
+		# Kiểm tra xem còn UserNotification nào khác cho Notification này không
+		if not UserNotification.objects.filter(notification=notification).exists():
+			# Nếu không còn UserNotification nào, xóa luôn Notification
+			notification.delete()
+
+		return Response({"message": "Thông báo đã được xóa thành công"}, status=status.HTTP_204_NO_CONTENT)
+
+	@action(detail=True, methods=['post'])
+	def mark_as_read(self, request, pk=None):
+		"""Đánh dấu thông báo đã đọc"""
+		notification = self.get_object()
+		notification.is_read = True
+		notification.read_at = localtime(timezone.now())
+		notification.save()
+
+		return Response(UserNotificationSerializer(notification).data)
+
+	@action(detail=False, methods=['post'])
+	def mark_all_as_read(self, request):
+		"""Đánh dấu tất cả thông báo đã đọc"""
+		UserNotification.objects.filter(user=request.user, is_read=False).update(
+			is_read=True,
+			read_at=localtime(timezone.now())
+		)
+
+		return Response({"message": "Đã đánh dấu tất cả thông báo đã đọc"})
+
+	@action(detail=False, methods=['get'])
+	def unread(self, request):
+		"""Lấy số lượng thông báo chưa đọc"""
+		unread_count = UserNotification.objects.filter(user=request.user, is_read=False).count()
+		return Response({"unread_count": unread_count})
