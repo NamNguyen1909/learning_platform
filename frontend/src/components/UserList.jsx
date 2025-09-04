@@ -226,7 +226,7 @@ const UserList = ({ userType }) => {
         <DialogTitle>
           {modalType === 'view' && 'Xem thông tin người dùng'}
           {modalType === 'edit' && 'Chỉnh sửa người dùng'}
-          {modalType === 'add' && (userType === 'all' ? 'Thêm người dùng' : userType === 'instructor' ? 'Thêm giảng viên' : 'Thêm học viên')}
+          {modalType === 'add' && (userType === 'all' ? 'Thêm người dùng' : userType === 'instructor' ? 'Thêm giảng viên' : userType ==='learner' ? 'Thêm học viên' : 'Thêm trung tâm')}
         </DialogTitle>
         <DialogContent dividers>
           {modalType === 'view' && selectedUser && (

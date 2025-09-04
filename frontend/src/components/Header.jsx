@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   AppBar,
   Box,
@@ -30,8 +30,11 @@ import AccountCircle from '@mui/icons-material/AccountCircle';
 import { useNavigate, useLocation } from 'react-router-dom';
 import NotificationDropdown from './NotificationDropdown';
 import auth from '../services/auth';
+import { getUnreadNotifications } from '../services/apis';
+import { useUnreadNotificationsPolling } from '../hooks/useSmartPolling';
+import AdminPanelSettings from '@mui/icons-material/AdminPanelSettings';
 
-const menuItemsByRole = {
+const fullMenuItemsByRole = {
   admin: [
     { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
     { text: 'Quản lý khóa học', icon: <Book />, path: '/courses' },
@@ -40,6 +43,8 @@ const menuItemsByRole = {
     { text: 'Quản lý giảng viên', icon: <School />, path: '/instructors-management' },
     { text: 'Quản lý học viên', icon: <People />, path: '/learners-management' },
     { text: 'Quản lý trung tâm', icon: <School />, path: '/centers-management' },
+    { text: 'Thống kê hệ thống', icon: <Dashboard />, path: '/statistics' },
+    { text: 'Django Admin', icon: <AdminPanelSettings />, path: `${import.meta.env.VITE_API_URL}/admin`, external: true },
     { text: 'AI Tutor', icon: <Chat />, path: '/ai-tutor' },
   ],
   center: [
@@ -47,6 +52,7 @@ const menuItemsByRole = {
     { text: 'Danh sách khóa học', icon: <Book />, path: '/courses' },
     { text: 'Quản lý giảng viên', icon: <School />, path: '/instructors-management' },
     { text: 'Quản lý học viên', icon: <People />, path: '/learners-management' },
+    { text: 'Thống kê hệ thống', icon: <Dashboard />, path: '/statistics' },
     { text: 'AI Tutor', icon: <Chat />, path: '/ai-tutor' },
   ],
   instructor: [
@@ -67,6 +73,18 @@ const menuItemsByRole = {
   ],
 };
 
+const menuItemsByRole = {
+  admin: [
+    { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
+  ],
+  center: [
+    { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
+  ],
+  instructor: fullMenuItemsByRole.instructor,
+  learner: fullMenuItemsByRole.learner,
+  guest: fullMenuItemsByRole.guest,
+};
+
 const Header = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -79,6 +97,17 @@ const Header = () => {
   const [userRole, setUserRole] = useState('guest');
   const [notifications, setNotifications] = useState(0);
 
+  // Fetch unread notification count
+  const fetchUnreadCount = async () => {
+    try {
+      const response = await getUnreadNotifications();
+      setNotifications(response.unread_count || 0);
+    } catch (error) {
+      console.error('Failed to fetch unread notifications:', error);
+      setNotifications(0);
+    }
+  };
+
   // Kiểm tra login và lấy user info thực tế
   useEffect(() => {
     const fetchUser = async () => {
@@ -87,7 +116,8 @@ const Header = () => {
         if (userInfo) {
           setUser(userInfo);
           setUserRole(userInfo.role || 'learner');
-          setNotifications(2); // TODO: fetch real notification count if needed
+          // Fetch real unread notification count
+          await fetchUnreadCount();
         } else {
           setUser(null);
           setUserRole('guest');
@@ -104,15 +134,22 @@ const Header = () => {
     return () => window.removeEventListener('authChanged', fetchUser);
   }, []);
 
+  // Smart polling for unread notifications - every 30 seconds when user is authenticated
+  useUnreadNotificationsPolling(fetchUnreadCount, !!user);
+
   // Handlers
   const handleOpenUserMenu = (event) => setAnchorElUser(event.currentTarget);
   const handleCloseUserMenu = () => setAnchorElUser(null);
   const handleDrawerToggle = () => setMobileOpen(!mobileOpen);
 
-  const handleNavigation = (path) => {
-    navigate(path);
-    setMobileOpen(false);
-    handleCloseUserMenu();
+  const handleNavigation = (path, external = false) => {
+    if (external) {
+      window.open(path, '_blank');
+    } else {
+      navigate(path);
+      setMobileOpen(false);
+      handleCloseUserMenu();
+    }
   };
 
   const handleLogout = async () => {
@@ -130,12 +167,15 @@ const Header = () => {
     ? [
         { text: 'Hồ sơ', action: () => handleNavigation('/profile') },
         { text: 'Cài đặt', action: () => handleNavigation('/account-settings') },
+        ...(userRole === 'admin' ? [{ text: 'Django Admin', action: () => window.open(`${import.meta.env.VITE_API_URL}/admin`, '_blank') }] : []),
         { text: 'Đăng xuất', action: handleLogout },
       ]
     : [
         { text: 'Đăng nhập', action: () => handleNavigation('/login') },
         { text: 'Đăng ký', action: () => handleNavigation('/register') },
       ];
+
+  const drawerMenuItems = fullMenuItemsByRole[userRole] || fullMenuItemsByRole.guest;
 
   const drawer = (
     <Box onClick={handleDrawerToggle} sx={{ textAlign: 'center' }}>
@@ -144,10 +184,10 @@ const Header = () => {
       </Typography>
       <Divider />
       <List>
-        {menuItems.map((item) => (
+        {drawerMenuItems.map((item) => (
           <ListItem key={item.text} disablePadding>
             <ListItemButton
-              onClick={() => handleNavigation(item.path)}
+              onClick={() => handleNavigation(item.path, item.external)}
               selected={location.pathname === item.path}
               sx={{
                 '&.Mui-selected': {
@@ -215,7 +255,7 @@ const Header = () => {
             {menuItems.map((item) => (
               <Button
                 key={item.text}
-                onClick={() => handleNavigation(item.path)}
+                onClick={() => handleNavigation(item.path, item.external)}
                 startIcon={item.icon}
                 sx={{
                   my: 2,
@@ -238,6 +278,7 @@ const Header = () => {
               <NotificationDropdown
                 notificationCount={notifications}
                 onNotificationUpdate={setNotifications}
+                onRefreshUnreadCount={fetchUnreadCount}
               />
             )}
             <Tooltip title="Tài khoản">

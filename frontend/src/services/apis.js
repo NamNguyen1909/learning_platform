@@ -123,6 +123,18 @@ export const endpoints = {
     hot: "/api/courses/hot/",
     suggested: "/api/courses/suggested/",
   },
+  payment: {
+    list: "/api/payments/",
+    create: "/api/payments/",
+    detail: (id) => `/api/payments/${id}/`,
+    createPaymentUrl: "/api/vnpay/create_payment_url/",
+    vnpayRedirect: "/api/vnpay/redirect/",
+  },
+  statistics: {
+    courses: "/api/statistics/courses/",
+    instructors: "/api/statistics/instructors/",
+    learners: "/api/statistics/learners/",
+  },
 
   tag: {
     list: "/api/tags/",
@@ -189,6 +201,9 @@ export const endpoints = {
     create: "/api/user-notifications/",
     update: (id) => `/api/user-notifications/${id}/`,
     delete: (id) => `/api/user-notifications/${id}/`,
+    markRead: (id) => `/api/user-notifications/${id}/mark_as_read/`,
+    markAllRead: "/api/user-notifications/mark_all_as_read/",
+    unread: "/api/user-notifications/unread/",
   },
 };
 
@@ -201,4 +216,45 @@ export const getHotCourses = () => api.get(endpoints.course.hot);
 
 // Lấy 5 khoá học gợi ý cho user hiện tại
 export const getSuggestedCourses = () => api.get(endpoints.course.suggested);
+// Thống kê cho admin/center
+export const getCourseStatistics = (params = {}) => {
+  const query = new URLSearchParams(params).toString();
+  return api.get(`${endpoints.statistics.courses}${query ? '?' + query : ''}`);
+};
+export const getInstructorStatistics = (params = {}) => {
+  const query = new URLSearchParams(params).toString();
+  return api.get(`${endpoints.statistics.instructors}${query ? '?' + query : ''}`);
+};
+export const getLearnerStatistics = (params = {}) => {
+  const query = new URLSearchParams(params).toString();
+  return api.get(`${endpoints.statistics.learners}${query ? '?' + query : ''}`);
+};
+
+// Notification API functions
+export const fetchNotifications = async (page = 1, limit = 10) => {
+  const response = await api.get(`${endpoints.userNotification.list}?page=${page}&limit=${limit}`);
+  return response.data;
+};
+
+export const markNotificationAsRead = async (notificationId) => {
+  return api.post(endpoints.userNotification.markRead(notificationId));
+};
+
+export const deleteUserNotification = async (userNotificationId) => {
+  return api.delete(endpoints.userNotification.delete(userNotificationId));
+};
+
+export const markAllAsRead = async () => {
+  return api.post(endpoints.userNotification.markAllRead);
+};
+
+export const getUnreadNotifications = async () => {
+  const response = await api.get(endpoints.userNotification.unread);
+  return response.data;
+};
+
+// Payment API functions
+export const createCoursePayment = (data) => api.post(endpoints.payment.create, data);
+export const createPaymentUrl = (params) => api.get(endpoints.payment.createPaymentUrl, { params });
+
 export default api;
