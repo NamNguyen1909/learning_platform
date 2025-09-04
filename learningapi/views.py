@@ -378,7 +378,11 @@ class UserViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.UpdateAPIVi
 	
 class CourseViewSet(viewsets.ViewSet,generics.CreateAPIView,generics.UpdateAPIView,generics.ListAPIView,generics.RetrieveAPIView,generics.DestroyAPIView):
 	serializer_class = CourseSerializer
-	queryset = Course.objects.all()
+	def get_queryset(self):
+		queryset = Course.objects.all()
+		if self.action in ['list', 'retrieve']:
+			queryset = queryset.filter(is_published=True)
+		return queryset
 	filter_backends = [SearchFilter, OrderingFilter]
 	search_fields = ['title', 'description', 'tags__name']
 	ordering_fields = ['created_at', 'title']
