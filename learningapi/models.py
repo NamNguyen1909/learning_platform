@@ -1,5 +1,6 @@
 from django.db import models
 from cloudinary.models import CloudinaryField
+from cloudinary.uploader import upload
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.utils import timezone
 from django.core.validators import MinValueValidator, MaxValueValidator
@@ -101,7 +102,8 @@ class CourseProgress(models.Model):
 class Document(models.Model):
 	course = models.ForeignKey('Course', on_delete=models.CASCADE, related_name='documents')
 	title = models.CharField(max_length=255)
-	file = CloudinaryField('file', folder='learning_platform/course_documents', null=True, blank=True)
+	file = CloudinaryField('file', folder='learning_platform/course_documents', resource_type='raw', null=True, blank=True)
+	url = models.URLField(max_length=500, null=True, blank=True)
 	uploaded_by = models.ForeignKey('User', on_delete=models.SET_NULL, null=True, blank=True, related_name='uploaded_documents')
 	uploaded_at = models.DateTimeField(auto_now_add=True)
 

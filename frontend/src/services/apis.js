@@ -116,12 +116,14 @@ export const endpoints = {
     updateProfile: "/api/users/current_user/",
   },
   course: {
+    create: "/api/courses/",
     list: "/api/courses/",
     detail: (id) => `/api/courses/${id}/`,
     register: (id) => `/api/courses/${id}/register/`,
     deactivate: (id) => `/api/courses/${id}/deactivate/`,
     hot: "/api/courses/hot/",
     suggested: "/api/courses/suggested/",
+    myCourses:"/api/courses/my-courses/",
   },
   payment: {
     list: "/api/payments/",
@@ -256,5 +258,10 @@ export const getUnreadNotifications = async () => {
 // Payment API functions
 export const createCoursePayment = (data) => api.post(endpoints.payment.create, data);
 export const createPaymentUrl = (params) => api.get(endpoints.payment.createPaymentUrl, { params });
+
+// New API call for instructor's own courses
+export const getMyCourses = (params = {}) => {
+  return api.get(endpoints.course.myCourses, { params });
+};
 
 export default api;

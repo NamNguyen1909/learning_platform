@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import *
+import cloudinary.utils
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -13,7 +14,7 @@ class UserSerializer(serializers.ModelSerializer):
 
 class CourseSerializer(serializers.ModelSerializer):
     instructor = UserSerializer(read_only=True)
-    tags = serializers.StringRelatedField(many=True)
+    tags = serializers.PrimaryKeyRelatedField(queryset=Tag.objects.all(), many=True)
 
     class Meta:
         model = Course
@@ -22,18 +23,24 @@ class CourseSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data['image'] = instance.image.url if instance.image else ''
+        data['tags'] = [tag.name for tag in instance.tags.all()]
         return data
 
 class DocumentSerializer(serializers.ModelSerializer):
     uploaded_by = UserSerializer(read_only=True)
     class Meta:
         model = Document
-        fields = ['id', 'course', 'title', 'file', 'uploaded_by', 'uploaded_at']
+        fields = ['id', 'course', 'title', 'file', 'url', 'uploaded_by', 'uploaded_at']
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        data['file'] = instance.file.url if instance.file else ''
+        if instance.file:
+            # Trả luôn secure_url public của Cloudinary
+            data['file'] = instance.file.url
+        else:
+            data['file'] = ''
         return data
+
 
 class DocumentCompletionSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)

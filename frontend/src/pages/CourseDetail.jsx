@@ -192,7 +192,16 @@ const CourseDetail = () => {
       return;
     }
     // Đã đăng ký, cho phép xem tài liệu
-    navigate(`/documents/${doc.id}`);
+    if (doc.url) {
+      // If document is a YouTube link, open DocumentViewer page
+      navigate(`/documents/${doc.id}`);
+    } else if (doc.file) {
+      // If document is a file (e.g. PDF), open DocumentViewer page
+      navigate(`/documents/${doc.id}`);
+    } else {
+      // Fallback: just navigate to document page
+      navigate(`/documents/${doc.id}`);
+    }
   };
 
   // Xử lý click đăng ký hoặc vào học
@@ -782,6 +791,15 @@ const CourseDetail = () => {
                   >
                     {doc.title}
                   </Typography>
+                  {doc.uploaded_by && (
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ mt: 0.5 }}
+                    >
+                      Được tải lên bởi: {doc.uploaded_by.full_name || doc.uploaded_by.username}
+                    </Typography>
+                  )}
                 </Box>
               ))}
             </Box>

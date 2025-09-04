@@ -380,8 +380,17 @@ class CourseViewSet(viewsets.ViewSet,generics.CreateAPIView,generics.UpdateAPIVi
 	serializer_class = CourseSerializer
 	def get_queryset(self):
 		queryset = Course.objects.all()
+		user = self.request.user
 		if self.action in ['list', 'retrieve']:
-			queryset = queryset.filter(is_published=True)
+			# Allow instructors to see their own courses regardless of publish status
+			if user.is_authenticated and hasattr(user, 'role') and user.role == 'instructor':
+				# For instructors, show all their courses + published courses from others
+				queryset = queryset.filter(
+					models.Q(is_published=True) | models.Q(instructor=user)
+				)
+			else:
+				# For non-instructors, only show published courses
+				queryset = queryset.filter(is_published=True)
 		return queryset
 	filter_backends = [SearchFilter, OrderingFilter]
 	search_fields = ['title', 'description', 'tags__name']
@@ -394,7 +403,35 @@ class CourseViewSet(viewsets.ViewSet,generics.CreateAPIView,generics.UpdateAPIVi
 			return [CanCURDCourse()]
 		if self.action in ['list', 'retrieve','hot_courses']:
 			return [permissions.AllowAny()]
+		if self.action == 'my_courses':
+			return [IsInstructor()]
 		return [permissions.IsAuthenticated()]
+
+	def perform_create(self, serializer):
+		# Automatically set the instructor to the current user
+		serializer.save(instructor=self.request.user)
+	
+	@action(detail=False, methods=['get'], url_path='my-courses')
+	def my_courses(self, request):
+		user = request.user
+		if not hasattr(user, 'role') or user.role != 'instructor':
+			return Response({"detail": "Only instructors can access this endpoint."}, status=403)
+		qs = Course.objects.filter(instructor=user).order_by('-updated_at')
+		# Apply search filter
+		search = request.query_params.get('search')
+		if search:
+			qs = qs.filter(models.Q(title__icontains=search) | models.Q(description__icontains=search) | models.Q(tags__name__icontains=search)).distinct()
+		# Apply ordering
+		ordering = request.query_params.get('ordering', '-updated_at')
+		if ordering:
+			qs = qs.order_by(ordering)
+		# Pagination
+		page = self.paginate_queryset(qs)
+		if page is not None:
+			serializer = self.get_serializer(page, many=True)
+			return self.get_paginated_response(serializer.data)
+		serializer = self.get_serializer(qs, many=True)
+		return Response(serializer.data)
 
 	@action(detail=True, methods=['post'], url_path='deactivate')
 	def deactivate(self, request, pk=None):
@@ -473,7 +510,90 @@ class CourseProgressViewSet(viewsets.ViewSet,generics.ListAPIView,generics.Retri
 
 class DocumentViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPIView,generics.CreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
 	serializer_class = DocumentSerializer
-	queryset = Document.objects.all()
+
+	def get_queryset(self):
+		queryset = Document.objects.all()
+		course_id = self.request.query_params.get('course')
+		if course_id:
+			queryset = queryset.filter(course_id=course_id).order_by('title')
+		return queryset
+
+	def perform_create(self, serializer):
+		serializer.save(uploaded_by=self.request.user)
+
+	def perform_update(self, serializer):
+		serializer.save(uploaded_by=self.request.user)
+
+	@action(detail=True, methods=['get'], url_path='download')
+	def download(self, request, pk=None):
+		"""Serve document file through Django backend to handle authentication"""
+		try:
+			document = self.get_object()
+
+			# Check if user has permission to access this document
+			# (they should be enrolled in the course or be the instructor/center)
+			user = request.user
+			course = document.course
+
+			has_permission = False
+			if user.is_authenticated:
+				# Check if user is enrolled in the course
+				if CourseProgress.objects.filter(learner=user, course=course).exists():
+					has_permission = True
+				# Check if user is the instructor of the course
+				elif course.instructor == user:
+					has_permission = True
+				# Check if user is admin/center
+				elif hasattr(user, 'role') and user.role in ['admin', 'center']:
+					has_permission = True
+
+			if not has_permission:
+				return Response({'error': 'You do not have permission to access this document'}, status=403)
+
+			# Get the file from Cloudinary
+			if document.file:
+				# Get the Cloudinary resource
+				file_url = document.file.url
+
+				# For Cloudinary files, we can redirect to the URL since we have permission
+				# Or we can fetch and serve the file content
+				import requests
+				from django.http import HttpResponse
+
+				try:
+					# Try to fetch the file from Cloudinary
+					response = requests.get(file_url, timeout=30)
+					if response.status_code == 200:
+						# Create response with file content
+						file_response = HttpResponse(
+							response.content,
+							content_type=response.headers.get('content-type', 'application/octet-stream')
+						)
+
+						# Set filename for download
+						filename = str(document.file).split('/')[-1]
+						if '.' not in filename and document.title:
+							# Try to infer extension from title
+							if document.title.lower().endswith('.pdf'):
+								filename = f"{document.title}"
+							else:
+								filename = f"{document.title}.pdf"
+
+						file_response['Content-Disposition'] = f'attachment; filename="{filename}"'
+						return file_response
+					else:
+						return Response({'error': 'Failed to fetch file from storage'}, status=500)
+				except requests.RequestException as e:
+					logger.error(f"Error fetching file: {e}")
+					return Response({'error': 'Failed to fetch file'}, status=500)
+			else:
+				return Response({'error': 'No file available'}, status=404)
+
+		except Document.DoesNotExist:
+			return Response({'error': 'Document not found'}, status=404)
+		except Exception as e:
+			logger.error(f"Error downloading document: {e}")
+			return Response({'error': 'Internal server error'}, status=500)
 
 # DocumentCompletion ViewSet
 class DocumentCompletionViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPIView,):
