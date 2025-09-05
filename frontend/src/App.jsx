@@ -24,6 +24,10 @@ import PaymentResult from './pages/PaymentResult';
 import MyCourses from './pages/MyCourses';
 import DocumentViewer from './pages/DocumentViewer';
 
+import 'react-pdf/dist/Page/AnnotationLayer.css';
+import 'react-pdf/dist/Page/TextLayer.css';
+
+
 // Custom hook: lấy access/refresh token từ URL sau khi social login
 function useSocialAuthToken() {
   const location = useLocation();

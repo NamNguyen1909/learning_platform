@@ -15,6 +15,7 @@ import { Document, Page, pdfjs } from 'react-pdf';
 import api, { endpoints } from '../services/apis';
 import authUtils from '../services/auth';
 
+
 // Configure PDF.js worker
 import workerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url'; // Sử dụng tệp local .mjs
 pdfjs.GlobalWorkerOptions.workerSrc = workerSrc;
@@ -223,9 +224,7 @@ const DocumentViewer = () => {
                 Tải xuống PDF
               </Button>
             </Box>
-            <Typography variant="body1" sx={{ mb: 3, textAlign: 'center' }}>
-              PDF Document
-            </Typography>
+
             {pdfLoading ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
                 <CircularProgress />
@@ -251,9 +250,10 @@ const DocumentViewer = () => {
                 >
                   <Page
                     pageNumber={pageNumber}
-                    renderTextLayer={false}
-                    renderAnnotationLayer={false}
+                    renderTextLayer={true}
+                    renderAnnotationLayer={true}
                     scale={1.2}
+                    position="relative"
                   />
                 </Document>
                 {numPages && numPages > 1 && (

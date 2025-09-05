@@ -54,7 +54,7 @@ const MyCourses = () => {
     end_date: null,
     tags: [],
     is_published: false,
-    documents: [], // Array of {id, title, file, isNew, toDelete}
+    documents: [], // Array of documents (local for new course, fetched for edit)
   });
   const [formLoading, setFormLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({
@@ -66,6 +66,19 @@ const MyCourses = () => {
   const [editingCourseId, setEditingCourseId] = useState(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [courseToDelete, setCourseToDelete] = useState(null);
+
+  // Document modal states
+  const [openDocumentModal, setOpenDocumentModal] = useState(false);
+  const [documentForm, setDocumentForm] = useState({
+    id: null,
+    title: '',
+    type: 'file',
+    file: null,
+    youtube_url: '',
+    original_type: 'file',
+    file_url: '',
+  });
+  const [isDocumentEdit, setIsDocumentEdit] = useState(false);
 
   const navigate = useNavigate();
 
@@ -94,6 +107,33 @@ const MyCourses = () => {
       setTags(Array.isArray(res.data) ? res.data : []);
     } catch {
       setTags([]);
+    }
+  };
+
+  const fetchCourseDocuments = async (courseId) => {
+    try {
+      const response = await api.get(endpoints.document.list({ course: courseId }));
+      let documentsData = [];
+      if (Array.isArray(response.data)) {
+        documentsData = response.data;
+      } else if (response.data.results && Array.isArray(response.data.results)) {
+        documentsData = response.data.results;
+      }
+      const existingDocuments = documentsData.map(doc => ({
+        id: doc.id,
+        title: doc.title,
+        file: null, // Can't prefill file input
+        isNew: false,
+        toDelete: false,
+        file_url: doc.file, // Keep original file URL
+        type: doc.url ? 'youtube' : 'file', // Set type based on content
+        youtube_url: doc.url || '',
+        uploaded_by: doc.uploaded_by || null, // Add uploaded_by field if available
+      }));
+      setFormData(prev => ({ ...prev, documents: existingDocuments }));
+    } catch (error) {
+      console.error('Error fetching documents:', error);
+      setFormData(prev => ({ ...prev, documents: [] }));
     }
   };
 
@@ -170,71 +210,6 @@ const MyCourses = () => {
     setFormData(prev => ({ ...prev, end_date: newValue }));
   };
 
-  // Document management functions
-  const handleAddDocument = () => {
-    setFormData(prev => ({
-      ...prev,
-      documents: [...prev.documents, { id: Date.now(), title: '', file: null, type: 'file', youtube_url: '', isNew: true }]
-    }));
-  };
-
-  const handleDocumentTitleChange = (index, title) => {
-    setFormData(prev => {
-      const newDocuments = [...prev.documents];
-      newDocuments[index].title = title;
-      return { ...prev, documents: newDocuments };
-    });
-  };
-
-  const handleDocumentFileChange = (index, file) => {
-    setFormData(prev => {
-      const newDocuments = [...prev.documents];
-      newDocuments[index].file = file;
-      return { ...prev, documents: newDocuments };
-    });
-  };
-
-  const handleDocumentTypeChange = (index, type) => {
-    setFormData(prev => {
-      const newDocuments = [...prev.documents];
-      newDocuments[index].type = type;
-      if (type === 'youtube') {
-        newDocuments[index].file = null; // Clear file if switching to YouTube
-      } else {
-        newDocuments[index].youtube_url = ''; // Clear YouTube URL if switching to file
-      }
-      return { ...prev, documents: newDocuments };
-    });
-  };
-
-  const handleDocumentYouTubeChange = (index, youtube_url) => {
-    setFormData(prev => {
-      const newDocuments = [...prev.documents];
-      newDocuments[index].youtube_url = youtube_url;
-      return { ...prev, documents: newDocuments };
-    });
-  };
-
-  const handleRemoveDocument = (index) => {
-    setFormData(prev => {
-      const newDocuments = [...prev.documents];
-      const doc = newDocuments[index];
-      if (!doc.isNew) {
-        // Mark for deletion
-        newDocuments[index].toDelete = true;
-      } else {
-        // Remove from array
-        newDocuments.splice(index, 1);
-      }
-      return { ...prev, documents: newDocuments };
-    });
-  };
-
-  const handleEditDocument = (index) => {
-    // For now, just allow editing title and file
-    // Could add a separate edit mode if needed
-  };
-
   const handleSubmit = async (isPublished) => {
     setFormLoading(true);
 
@@ -249,25 +224,6 @@ const MyCourses = () => {
         setFormLoading(false);
         return;
       }
-    }
-
-    const invalidDocs = formData.documents.filter(doc => !doc.toDelete && (
-    !doc.title.trim() ||
-    (doc.type === 'file' && !doc.file && doc.isNew) ||
-    (doc.type === 'youtube' && !doc.youtube_url.trim())
-    ));
-    if (invalidDocs.length > 0) {
-        setSnackbar({ open: true, message: 'Vui lòng điền đầy đủ tiêu đề và file/URL cho tài liệu.', severity: 'error' });
-        setFormLoading(false);
-        return;
-    }
-
-    // Get current user to set as instructor
-    const currentUser = await authUtils.getCurrentUser();
-    if (!currentUser) {
-      console.error('No current user found');
-      setFormLoading(false);
-      return;
     }
 
     const data = new FormData();
@@ -297,8 +253,6 @@ const MyCourses = () => {
       let courseId = editingCourseId;
       if (editMode && editingCourseId) {
         // Update existing course using PATCH for partial update
-        console.log('Updating course with ID:', editingCourseId);
-        console.log('Data:', data);
         await api.patch(endpoints.course.detail(editingCourseId), data, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
@@ -318,10 +272,7 @@ const MyCourses = () => {
           message: 'Khóa học đã được tạo thành công!',
           severity: 'success',
         });
-      }
-
-      // Handle document operations after course is saved
-      if (courseId) {
+        // Handle new documents for newly created course
         await handleDocumentOperations(courseId);
       }
 
@@ -338,76 +289,40 @@ const MyCourses = () => {
     setFormLoading(false);
   };
 
-  // Handle document operations (create, update, delete)
-const handleDocumentOperations = async (courseId) => {
+  // Handle document operations (only for new courses)
+  const handleDocumentOperations = async (courseId) => {
     try {
-        for (const doc of formData.documents) {
-          console.log('Processing document:', doc);
-            if (doc.toDelete && !doc.isNew) {
-                // Xóa doc cũ
-                await api.delete(endpoints.document.delete(doc.id));
-                continue;
-            }
-            if (doc.toDelete) continue; // Skip new deleted
+      for (const doc of formData.documents) {
+        const docFormData = new FormData();
+        docFormData.append('course', courseId);
+        docFormData.append('title', doc.title);
 
-            const docFormData = new FormData();
-            docFormData.append('course', courseId);
-            docFormData.append('title', doc.title);
-
-            if (doc.type === 'file') {
-              console.log('File:', doc.file);
-                if (doc.file instanceof File) {  // Chỉ append nếu là file thực
-                    docFormData.append('file', doc.file);
-                } else if (doc.isNew) {
-                    throw new Error('Vui lòng chọn file cho tài liệu mới loại PDF.');
-                } // Cho update, skip nếu không thay file
-            } else if (doc.type === 'youtube') {
-              console.log('YouTube URL:', doc.youtube_url);
-                if (doc.youtube_url.trim()) {
-                    docFormData.append('url', doc.youtube_url);  // Chỉ append nếu không empty
-                } else {
-                    throw new Error('Vui lòng nhập URL YouTube hợp lệ.');
-                }
-            }
-
-            if (doc.isNew) {
-                await api.post(endpoints.document.create, docFormData, {
-                  headers: { 'Content-Type': 'multipart/form-data' }
-                });  // POST mới
-            } else {
-                await api.patch(endpoints.document.update(doc.id), docFormData);  // PATCH update
-            }
+        if (doc.type === 'file') {
+          if (doc.file instanceof File) {
+            docFormData.append('file', doc.file);
+          }
+        } else if (doc.type === 'youtube') {
+          if (doc.youtube_url.trim()) {
+            docFormData.append('url', doc.youtube_url);
+          }
         }
-    } catch (error) {
-        console.error('Error handling document operations:', error);
-        setSnackbar({ open: true, message: 'Lỗi xử lý tài liệu: ' + error.message, severity: 'error' });
-    }
-};
 
-    const handleEditClick = async (course) => {
+        // For new course, all docs are new
+        await api.post(endpoints.document.create, docFormData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+      }
+    } catch (error) {
+      console.error('Error handling document operations:', error);
+      setSnackbar({ open: true, message: 'Lỗi xử lý tài liệu: ' + error.message, severity: 'error' });
+    }
+  };
+
+  const handleEditClick = async (course) => {
     setEditMode(true);
     setEditingCourseId(course.id);
     // Convert tag names to tag objects for Autocomplete
     const courseTagObjects = tags.filter(tag => course.tags.includes(tag.name));
-
-    // Fetch existing documents for this course
-    let existingDocuments = [];
-    try {
-      const response = await api.get(endpoints.document.list({ course: course.id }));
-      console.log('API Documents Response:', response.data.results); // Log dữ liệu trả về
-      existingDocuments = Array.isArray(response.data.results) ? response.data.results.map(doc => ({
-        id: doc.id,
-        title: doc.title,
-        file: null, // Can't prefill file input
-        isNew: false,
-        toDelete: false,
-        file_url: doc.file, // Keep original file URL
-        type: doc.url ? 'youtube' : 'file', // Set type based on content
-        youtube_url: doc.url || '',
-      })) : [];
-    } catch (error) {
-      console.error('Error fetching documents:', error);
-    }
 
     setFormData({
       title: course.title || '',
@@ -418,11 +333,9 @@ const handleDocumentOperations = async (courseId) => {
       end_date: course.end_date ? dayjs(course.end_date) : null,
       tags: courseTagObjects,
       is_published: course.is_published || false,
-      documents: existingDocuments.map(doc => ({
-        ...doc,
-        uploaded_by: doc.uploaded_by || null, // Add uploaded_by field if available
-      })),
+      documents: [], // Will be fetched
     });
+    await fetchCourseDocuments(course.id);
     setOpenModal(true);
   };
 
@@ -456,6 +369,157 @@ const handleDocumentOperations = async (courseId) => {
   const handleCancelDelete = () => {
     setDeleteDialogOpen(false);
     setCourseToDelete(null);
+  };
+
+  // Document modal handlers
+  const handleOpenDocumentModal = (doc = null) => {
+    if (doc) {
+      setDocumentForm({
+        id: doc.id,
+        title: doc.title,
+        type: doc.type,
+        original_type: doc.type,
+        file: null,
+        youtube_url: doc.youtube_url || '',
+        file_url: doc.file_url,
+      });
+      setIsDocumentEdit(true);
+    } else {
+      setDocumentForm({
+        id: null,
+        title: '',
+        type: 'file',
+        original_type: 'file',
+        file: null,
+        youtube_url: '',
+        file_url: '',
+      });
+      setIsDocumentEdit(false);
+    }
+    setOpenDocumentModal(true);
+  };
+
+  const handleCloseDocumentModal = () => {
+    setOpenDocumentModal(false);
+  };
+
+  const handleDocumentFormChange = (e) => {
+    const { name, value } = e.target;
+    setDocumentForm(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleDocumentFileChange = (e) => {
+    setDocumentForm(prev => ({ ...prev, file: e.target.files[0] }));
+    const file = e.target.files[0];
+    if (file && file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+      setSnackbar({ open: true, message: 'Chỉ được phép tải lên file PDF (.pdf)', severity: 'warning' });
+      return;
+    }
+    setDocumentForm(prev => ({ ...prev, file }));
+  };
+
+  const handleSubmitDocument = async () => {
+    if (!documentForm.title.trim()) {
+      setSnackbar({ open: true, message: 'Vui lòng nhập tiêu đề tài liệu.', severity: 'warning' });
+      return;
+    }
+    if (documentForm.type === 'file' && !documentForm.file && !isDocumentEdit) {
+      setSnackbar({ open: true, message: 'Vui lòng chọn file cho tài liệu.', severity: 'warning' });
+      return;
+    }
+    if (documentForm.type === 'file' && documentForm.file) {
+      const file = documentForm.file;
+      if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+        setSnackbar({ open: true, message: 'Chỉ được phép tải lên file PDF (.pdf)', severity: 'warning' });
+        return;
+      }
+    }
+    if (documentForm.type === 'youtube' && !documentForm.youtube_url.trim()) {
+      setSnackbar({ open: true, message: 'Vui lòng nhập URL YouTube.', severity: 'warning' });
+      return;
+    }
+
+    const docData = new FormData();
+    docData.append('title', documentForm.title);
+
+    if (documentForm.type === 'file') {
+      // Only append file if there's a new file to upload
+      if (documentForm.file) {
+        docData.append('file', documentForm.file);
+      }
+      // For editing: if no new file is selected, don't send file field
+      // Backend will keep the existing file
+    } else if (documentForm.type === 'youtube') {
+      if (documentForm.youtube_url.trim()) {
+        docData.append('url', documentForm.youtube_url);
+      }
+      // For editing: if no new URL is provided, don't send url field
+      // Backend will keep the existing URL
+    }
+
+    try {
+      if (editMode) {
+        // Existing course: call API immediately
+        docData.append('course', editingCourseId);
+        if (isDocumentEdit) {
+          await api.patch(endpoints.document.update(documentForm.id), docData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+        } else {
+          await api.post(endpoints.document.create, docData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+        }
+        // Refetch documents after operation
+        await fetchCourseDocuments(editingCourseId);
+      } else {
+        // New course: handle in local state
+        const newDoc = {
+          id: documentForm.id || Date.now(),
+          title: documentForm.title,
+          type: documentForm.type,
+          file: documentForm.file,
+          youtube_url: documentForm.youtube_url,
+          isNew: !isDocumentEdit,
+          file_url: documentForm.file ? URL.createObjectURL(documentForm.file) : (documentForm.file_url || ''),
+        };
+        setFormData(prev => {
+          if (isDocumentEdit) {
+            const updatedDocs = prev.documents.map(d => d.id === newDoc.id ? newDoc : d);
+            return { ...prev, documents: updatedDocs };
+          } else {
+            return { ...prev, documents: [...prev.documents, newDoc] };
+          }
+        });
+      }
+      setSnackbar({ open: true, message: 'Tài liệu đã được lưu thành công!', severity: 'success' });
+      handleCloseDocumentModal();
+    } catch (error) {
+      console.error('Error saving document:', error);
+      setSnackbar({ open: true, message: 'Có lỗi xảy ra khi lưu tài liệu!', severity: 'error' });
+    }
+  };
+
+  const handleDeleteDocument = async (doc) => {
+    if (!window.confirm('Bạn có chắc chắn muốn xóa tài liệu này?')) return;
+
+    try {
+      if (editMode) {
+        // Existing course: delete via API
+        await api.delete(endpoints.document.delete(doc.id));
+        await fetchCourseDocuments(editingCourseId);
+      } else {
+        // New course: remove from local state
+        setFormData(prev => ({
+          ...prev,
+          documents: prev.documents.filter(d => d.id !== doc.id)
+        }));
+      }
+      setSnackbar({ open: true, message: 'Tài liệu đã được xóa thành công!', severity: 'success' });
+    } catch (error) {
+      console.error('Error deleting document:', error);
+      setSnackbar({ open: true, message: 'Có lỗi xảy ra khi xóa tài liệu!', severity: 'error' });
+    }
   };
 
   return (
@@ -635,78 +699,54 @@ const handleDocumentOperations = async (courseId) => {
                 <Button
                   variant="outlined"
                   startIcon={<AddIcon />}
-                  onClick={handleAddDocument}
+                  onClick={() => handleOpenDocumentModal()}
                   sx={{ mb: 2 }}
                 >
                   Thêm tài liệu
                 </Button>
-                {formData.documents.map((doc, index) => (
-                  !doc.toDelete && (
-                    <Box key={doc.id} sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 2, p: 2, border: '1px solid #ddd', borderRadius: 1 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <TextField
-                          label="Tiêu đề tài liệu"
-                          value={doc.title}
-                          onChange={(e) => handleDocumentTitleChange(index, e.target.value)}
-                          size="small"
-                          sx={{ flex: 1 }}
-                        />
-                        <TextField
-                          select
-                          label="Loại tài liệu"
-                          value={doc.type || 'file'}
-                          onChange={(e) => handleDocumentTypeChange(index, e.target.value)}
-                          size="small"
-                          sx={{ minWidth: 120 }}
+                {formData.documents.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary">
+                    Chưa có tài liệu cho khóa học này.
+                  </Typography>
+                ) : (
+                  <Box sx={{ bgcolor: "#fafafa", borderRadius: 2, boxShadow: 1, p: 2 }}>
+                    {formData.documents.map((doc) => (
+                      <Box
+                        key={doc.id}
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          mb: 2,
+                          p: 1,
+                          borderBottom: "1px solid #eee",
+                          cursor: "pointer",
+                          "&:hover": { bgcolor: "#e3eafc" },
+                        }}
+                      >
+                        <Typography
+                          variant="subtitle1"
+                          fontWeight={500}
+                          color="primary"
+                          sx={{ flex: 1, textDecoration: "underline" }}
                         >
-                          <MenuItem value="file">File PDF</MenuItem>
-                          <MenuItem value="youtube">YouTube Link</MenuItem>
-                        </TextField>
+                          {doc.title}
+                        </Typography>
                         <IconButton
                           color="primary"
-                          onClick={() => handleEditDocument(index)}
-                          size="small"
+                          onClick={() => handleOpenDocumentModal(doc)}
                         >
                           <EditIcon />
                         </IconButton>
                         <IconButton
                           color="error"
-                          onClick={() => handleRemoveDocument(index)}
-                          size="small"
+                          onClick={() => handleDeleteDocument(doc)}
                         >
                           <DeleteIcon />
                         </IconButton>
                       </Box>
-                      {doc.type === 'file' ? (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                          <TextField
-                            type="file"
-                            label={doc.isNew ? "Chọn file" : "Thay đổi file"}
-                            InputLabelProps={{ shrink: true }}
-                            onChange={(e) => handleDocumentFileChange(index, e.target.files[0])}
-                            size="small"
-                            inputProps={{ accept: '.pdf,.doc,.docx,.txt,.ppt,.pptx' }}
-                            sx={{ flex: 1 }}
-                          />
-                          {!doc.isNew && doc.file_url && (
-                            <Typography variant="body2" sx={{ flex: 1, color: 'text.secondary' }}>
-                              File hiện tại: {doc.file_url.split('/').pop()}
-                            </Typography>
-                          )}
-                        </Box>
-                      ) : (
-                        <TextField
-                          label="YouTube URL"
-                          value={doc.youtube_url || ''}
-                          onChange={(e) => handleDocumentYouTubeChange(index, e.target.value)}
-                          size="small"
-                          sx={{ flex: 1 }}
-                          placeholder="https://www.youtube.com/watch?v=..."
-                        />
-                      )}
-                    </Box>
-                  )
-                ))}
+                    ))}
+                  </Box>
+                )}
               </Box>
             </Box>
           </LocalizationProvider>
@@ -728,6 +768,71 @@ const handleDocumentOperations = async (courseId) => {
             disabled={formLoading}
           >
             {editMode ? 'Cập nhật' : 'Xuất bản'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Document Modal */}
+      <Dialog open={openDocumentModal} onClose={handleCloseDocumentModal} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {isDocumentEdit ? 'Chỉnh sửa tài liệu' : 'Thêm tài liệu mới'}
+        </DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            label="Tiêu đề tài liệu"
+            name="title"
+            value={documentForm.title}
+            onChange={handleDocumentFormChange}
+            margin="normal"
+            required
+          />
+          <TextField
+            select
+            fullWidth
+            label="Loại tài liệu"
+            name="type"
+            value={documentForm.type}
+            onChange={handleDocumentFormChange}
+            margin="normal"
+          >
+            <MenuItem value="file">File PDF</MenuItem>
+            <MenuItem value="youtube">YouTube Link</MenuItem>
+          </TextField>
+          {documentForm.type === 'file' ? (
+            <>
+              <TextField
+                fullWidth
+                type="file"
+                label={isDocumentEdit ? "Thay đổi file (tùy chọn)" : "Chọn file"}
+                InputLabelProps={{ shrink: true }}
+                onChange={handleDocumentFileChange}
+                margin="normal"
+                inputProps={{ accept: '.pdf,.doc,.docx,.txt,.ppt,.pptx' }}
+              />
+              {isDocumentEdit && documentForm.file_url && (
+                <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary' }}>
+                  File hiện tại: {documentForm.file_url.split('/').pop()}
+                </Typography>
+              )}
+            </>
+          ) : (
+            <TextField
+              fullWidth
+              label="YouTube URL"
+              name="youtube_url"
+              value={documentForm.youtube_url}
+              onChange={handleDocumentFormChange}
+              margin="normal"
+              placeholder="https://www.youtube.com/watch?v=..."
+              required
+            />
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDocumentModal}>Hủy</Button>
+          <Button variant="contained" onClick={handleSubmitDocument}>
+            {isDocumentEdit ? 'Cập nhật' : 'Thêm'}
           </Button>
         </DialogActions>
       </Dialog>

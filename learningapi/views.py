@@ -511,8 +511,11 @@ class CourseProgressViewSet(viewsets.ViewSet,generics.ListAPIView,generics.Retri
 		return [permissions.IsAuthenticated()]
 
 def generate_file_name(file_obj):
-	import time
+	import time, re
 	base_name, ext = os.path.splitext(file_obj.name)
+	# Loại bỏ ký tự đặc biệt, thay dấu cách bằng dấu gạch dưới
+	base_name = re.sub(r'[^A-Za-z0-9_]', '_', base_name)
+	base_name = re.sub(r'_+', '_', base_name)
 	timestamp = int(time.time())
 	unique_name = f"{base_name}_{timestamp}{ext}"
 	return unique_name
@@ -530,7 +533,15 @@ class DocumentViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPI
 
 	def create(self, request, *args, **kwargs):
 		file_obj = request.FILES.get('file')
-		data = request.data.copy()
+		# dict(request.data) có thể trả về list nếu field có nhiều giá trị
+		raw_data = dict(request.data)
+		data = {}
+		for k, v in raw_data.items():
+			# Nếu là list, chỉ lấy phần tử đầu tiên
+			if isinstance(v, list):
+				data[k] = v[0]
+			else:
+				data[k] = v
 		if file_obj:
 			file = generate_file_name(file_obj)
 			print(f"[Document] Generated file name: {file}")
@@ -562,10 +573,11 @@ class DocumentViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPI
 	def perform_update(self, serializer):
 		uploaded_file = self.request.FILES.get('file')
 		if uploaded_file:
-			file_path = upload_file(uploaded_file)
-			serializer.save(file=file_path)
+			file_name = generate_file_name(uploaded_file)
+			file_path = upload_file(uploaded_file, file_name)
+			serializer.save(file=file_path, uploaded_by=self.request.user)
 		else:
-			serializer.save()
+			serializer.save(uploaded_by=self.request.user)
 
 	@action(detail=False, methods=['post'], url_path='upload')
 	def upload(self, request):

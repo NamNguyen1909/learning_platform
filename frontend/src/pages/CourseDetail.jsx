@@ -183,7 +183,9 @@ const CourseDetail = () => {
     }
     // Kiểm tra lại quyền truy cập tài liệu (tái sử dụng hàm)
     const hasProgress = hasCourseProgress ?? (await checkCourseProgress(id));
-    if (!hasProgress) {
+    // Thêm điều kiện nếu user là instructor của khóa học
+    const isInstructor = currentUser && course && currentUser.id === course.instructor?.id;
+    if (!hasProgress && !isInstructor) {
       setSnackbar({
         open: true,
         message: "Bạn cần đăng ký khóa học để xem tài liệu!",
