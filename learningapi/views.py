@@ -530,21 +530,20 @@ class DocumentViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPI
 
 	def create(self, request, *args, **kwargs):
 		file_obj = request.FILES.get('file')
+		data = request.data.copy()
 		if file_obj:
 			file = generate_file_name(file_obj)
 			print(f"[Document] Generated file name: {file}")
 			saved_name = upload_file(file_obj, file)
 			print(f"[Document] Uploaded file to: {saved_name}")
-			data = request.data.copy()
 			data['file'] = saved_name
-			serializer = self.get_serializer(data=data)
-			if not serializer.is_valid():
-				print(f"[Document] Serializer errors: {serializer.errors}")
-				return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-			self.perform_create(serializer)
-			headers = self.get_success_headers(serializer.data)
-			return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
-		return super().create(request, *args, **kwargs)
+		serializer = self.get_serializer(data=data)
+		if not serializer.is_valid():
+			print(f"[Document] Serializer errors: {serializer.errors}")
+			return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+		instance = serializer.save(uploaded_by=request.user)
+		headers = self.get_success_headers(serializer.data)
+		return Response(self.get_serializer(instance).data, status=status.HTTP_201_CREATED, headers=headers)
 
 	def perform_create(self, serializer):
 		uploaded_file = self.request.FILES.get('file')

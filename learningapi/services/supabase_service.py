@@ -8,7 +8,14 @@ def upload_file(file_obj, file_name: str):
     Upload file lên Supabase Storage
     """
     bucket = settings.SUPABASE_BUCKET
-    res = supabase.storage.from_(bucket).upload(file_name, file_obj.read())
+    res = supabase.storage.from_(bucket).upload(
+        file_name,
+        file_obj.read(),
+        {
+            "content-type": "application/pdf",
+            "upsert": "True"
+        }
+    )
     if res:
         return file_name
     return None

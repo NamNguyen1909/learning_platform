@@ -14,6 +14,7 @@ export default defineConfig({
       secure: false,
     },
   },
+  assetsInclude: ['**/*.worker.min.js', '**/*.worker.js', '**/*.worker.min.mjs'],
 },
   preview: {
     port: 4173,
