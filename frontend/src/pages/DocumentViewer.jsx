@@ -135,8 +135,7 @@ const DocumentViewer = () => {
 
     // Check if it's a PDF file
     if (document.file) {
-      const fileUrl = document.file;
-      const isPDF = fileUrl.toLowerCase().endsWith('.pdf');
+      const isPDF = document.file.toLowerCase().endsWith('.pdf');
 
       if (isPDF) {
         return (
@@ -151,19 +150,56 @@ const DocumentViewer = () => {
               <Button
                 variant="contained"
                 color="primary"
-                href={fileUrl}
-                target="_blank"
-                rel="noopener noreferrer"
+                onClick={async () => {
+                  try {
+                    // Use axios to make authenticated request to backend download endpoint
+                    const response = await api.get(endpoints.document.download(id), {
+                      responseType: 'blob' // Important for file downloads
+                    });
+                    // Create blob URL and open in new tab
+                    const blob = new Blob([response.data], { type: response.headers['content-type'] || 'application/pdf' });
+                    const url = window.URL.createObjectURL(blob);
+                    window.open(url, '_blank');
+                  } catch (error) {
+                    console.error('Error downloading document:', error);
+                    setSnackbar({
+                      open: true,
+                      message: 'Không thể tải tài liệu. Vui lòng thử lại.',
+                      severity: 'error',
+                    });
+                  }
+                }}
                 sx={{ minWidth: 150 }}
               >
                 Xem PDF
               </Button>
               <Button
                 variant="outlined"
-                href={fileUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                download
+                onClick={async () => {
+                  try {
+                    // Use axios to make authenticated request to backend download endpoint
+                    const response = await api.get(endpoints.document.download(id), {
+                      responseType: 'blob' // Important for file downloads
+                    });
+                    // Create download link with blob
+                    const blob = new Blob([response.data], { type: response.headers['content-type'] || 'application/pdf' });
+                    const url = window.URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = document.title + '.pdf';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    window.URL.revokeObjectURL(url);
+                  } catch (error) {
+                    console.error('Error downloading document:', error);
+                    setSnackbar({
+                      open: true,
+                      message: 'Không thể tải tài liệu. Vui lòng thử lại.',
+                      severity: 'error',
+                    });
+                  }
+                }}
                 sx={{ minWidth: 150 }}
               >
                 Tải xuống
@@ -188,10 +224,31 @@ const DocumentViewer = () => {
             </Typography>
             <Button
               variant="contained"
-              href={fileUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              download
+              onClick={async () => {
+                try {
+                  // Use axios to make authenticated request to backend download endpoint
+                  const response = await api.get(endpoints.document.download(id), {
+                    responseType: 'blob' // Important for file downloads
+                  });
+                  // Create download link with blob
+                  const blob = new Blob([response.data], { type: response.headers['content-type'] || 'application/octet-stream' });
+                  const url = window.URL.createObjectURL(blob);
+                  const link = document.createElement('a');
+                  link.href = url;
+                  link.download = document.title;
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                  window.URL.revokeObjectURL(url);
+                } catch (error) {
+                  console.error('Error downloading document:', error);
+                  setSnackbar({
+                    open: true,
+                    message: 'Không thể tải tài liệu. Vui lòng thử lại.',
+                    severity: 'error',
+                  });
+                }
+              }}
             >
               Tải xuống file
             </Button>

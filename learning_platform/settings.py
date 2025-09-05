@@ -11,7 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
-import environ
+import environ,os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -26,6 +26,12 @@ CLOUDINARY = {
     'api_key': env('CLOUDINARY_API_KEY', default=''),
     'api_secret': env('CLOUDINARY_API_SECRET', default=''),
 }
+
+# Supabase settings
+SUPABASE_URL = env('SUPABASE_URL', default='')
+SUPABASE_KEY = env('SUPABASE_KEY', default='')
+SUPABASE_BUCKET = env('SUPABASE_BUCKET', default='learning-platform')
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
@@ -258,3 +264,5 @@ SOCIAL_AUTH_EMAIL_VALIDATION_URL = '/email-validation-sent/'
 # http://localhost:8000/auth/complete/google-oauth2/
 # http://localhost:8000/auth/complete/github/
 # http://localhost:8000/auth/complete/facebook/
+
+

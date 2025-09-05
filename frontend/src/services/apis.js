@@ -159,6 +159,8 @@ export const endpoints = {
     create: "/api/documents/",
     update: (id) => `/api/documents/${id}/`,
     delete: (id) => `/api/documents/${id}/`,
+    upload: "/api/documents/upload/",
+    download: (id) => `/api/documents/${id}/download/`,
   },
   documentCompletion: {
     list: "/api/document-completions/",
@@ -262,6 +264,15 @@ export const createPaymentUrl = (params) => api.get(endpoints.payment.createPaym
 // New API call for instructor's own courses
 export const getMyCourses = (params = {}) => {
   return api.get(endpoints.course.myCourses, { params });
+};
+
+// Document upload API function
+export const uploadDocument = (formData) => {
+  return api.post(endpoints.document.upload, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
 };
 
 export default api;

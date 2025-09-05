@@ -102,10 +102,17 @@ class CourseProgress(models.Model):
 class Document(models.Model):
 	course = models.ForeignKey('Course', on_delete=models.CASCADE, related_name='documents')
 	title = models.CharField(max_length=255)
-	file = CloudinaryField('file', folder='learning_platform/course_documents', resource_type='raw', null=True, blank=True)
+	file = models.CharField(max_length=255, null=True, blank=True)  # tên file trên Supabase
 	url = models.URLField(max_length=500, null=True, blank=True)
 	uploaded_by = models.ForeignKey('User', on_delete=models.SET_NULL, null=True, blank=True, related_name='uploaded_documents')
 	uploaded_at = models.DateTimeField(auto_now_add=True)
+
+	def get_url(self):
+		# nếu muốn signed url
+		from learningapi.services.supabase_service import get_signed_url
+		if self.file:
+			return get_signed_url(self.file_name, expires_in=3600)
+		return self.url
 
 	def __str__(self):
 		return self.title

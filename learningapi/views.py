@@ -21,6 +21,7 @@ from django.utils import timezone
 from django.utils.timezone import localtime
 from datetime import datetime
 import os,hashlib,hmac
+import uuid
 
 # Health check endpoint for Render deployment
 @csrf_exempt
@@ -46,6 +47,7 @@ def demo_user_info(request):
 # --- STATISTICS API ---
 from rest_framework.views import APIView
 from .models import Course, User, CourseProgress, Payment, Review, Document, Notification
+from .services.supabase_service import upload_file, get_public_url
 from rest_framework import status
 
 
@@ -508,8 +510,16 @@ class CourseProgressViewSet(viewsets.ViewSet,generics.ListAPIView,generics.Retri
 	def get_permissions(self):
 		return [permissions.IsAuthenticated()]
 
+def generate_file_name(file_obj):
+	import time
+	base_name, ext = os.path.splitext(file_obj.name)
+	timestamp = int(time.time())
+	unique_name = f"{base_name}_{timestamp}{ext}"
+	return unique_name
+
 class DocumentViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPIView,generics.CreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
 	serializer_class = DocumentSerializer
+	permission_classes = [permissions.AllowAny]
 
 	def get_queryset(self):
 		queryset = Document.objects.all()
@@ -518,11 +528,81 @@ class DocumentViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPI
 			queryset = queryset.filter(course_id=course_id).order_by('title')
 		return queryset
 
+	def create(self, request, *args, **kwargs):
+		file_obj = request.FILES.get('file')
+		if file_obj:
+			file = generate_file_name(file_obj)
+			print(f"[Document] Generated file name: {file}")
+			saved_name = upload_file(file_obj, file)
+			print(f"[Document] Uploaded file to: {saved_name}")
+			data = request.data.copy()
+			data['file'] = saved_name
+			serializer = self.get_serializer(data=data)
+			if not serializer.is_valid():
+				print(f"[Document] Serializer errors: {serializer.errors}")
+				return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+			self.perform_create(serializer)
+			headers = self.get_success_headers(serializer.data)
+			return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+		return super().create(request, *args, **kwargs)
+
 	def perform_create(self, serializer):
-		serializer.save(uploaded_by=self.request.user)
+		uploaded_file = self.request.FILES.get('file')
+		file_path = None
+		if uploaded_file:
+			print(f"[Document] Uploading file: {uploaded_file.name}")
+			file_name = generate_file_name(uploaded_file)
+			file_path = upload_file(uploaded_file, file_name)  # Upload to Supabase, get path
+			print(f"[Document] File uploaded to: {file_path}")
+			serializer.save(
+            uploaded_by=self.request.user,
+            file=file_path  # Save path, not the file object
+		
+        )
 
 	def perform_update(self, serializer):
-		serializer.save(uploaded_by=self.request.user)
+		uploaded_file = self.request.FILES.get('file')
+		if uploaded_file:
+			file_path = upload_file(uploaded_file)
+			serializer.save(file=file_path)
+		else:
+			serializer.save()
+
+	@action(detail=False, methods=['post'], url_path='upload')
+	def upload(self, request):
+		file = request.FILES.get("file")
+		title = request.data.get("title")
+		course_id = request.data.get("course_id")
+
+		if not file:
+			return Response({"error": "No file uploaded"}, status=status.HTTP_400_BAD_REQUEST)
+
+		if not course_id:
+			return Response({"error": "Course ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+		try:
+			course = Course.objects.get(id=course_id)
+		except Course.DoesNotExist:
+			return Response({"error": "Course not found"}, status=status.HTTP_404_NOT_FOUND)
+
+		# Check if user has permission to upload to this course
+		if not (request.user == course.instructor or hasattr(request.user, 'role') and request.user.role in ['admin', 'center','instructor']):
+			return Response({"error": "You don't have permission to upload to this course"}, status=status.HTTP_403_FORBIDDEN)
+
+		file_name = f"{request.user.id}_{file.name}"  # tránh trùng tên
+		uploaded = upload_file(file, file_name)
+
+		if uploaded:
+			doc = Document.objects.create(
+				course_id=course_id,
+				title=title,
+				file=file_name,
+				uploaded_by=request.user
+			)
+			serializer = DocumentSerializer(doc)
+			return Response({"message": "Uploaded successfully", "document": serializer.data})
+		else:
+			return Response({"error": "Upload failed"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 	@action(detail=True, methods=['get'], url_path='download')
 	def download(self, request, pk=None):
@@ -550,42 +630,45 @@ class DocumentViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPI
 			if not has_permission:
 				return Response({'error': 'You do not have permission to access this document'}, status=403)
 
-			# Get the file from Cloudinary
+			# Get the file from Supabase
 			if document.file:
-				# Get the Cloudinary resource
-				file_url = document.file.url
-
-				# For Cloudinary files, we can redirect to the URL since we have permission
-				# Or we can fetch and serve the file content
-				import requests
-				from django.http import HttpResponse
-
 				try:
-					# Try to fetch the file from Cloudinary
-					response = requests.get(file_url, timeout=30)
-					if response.status_code == 200:
-						# Create response with file content
-						file_response = HttpResponse(
-							response.content,
-							content_type=response.headers.get('content-type', 'application/octet-stream')
-						)
+					from django.http import HttpResponse
+					import requests
 
-						# Set filename for download
-						filename = str(document.file).split('/')[-1]
-						if '.' not in filename and document.title:
-							# Try to infer extension from title
-							if document.title.lower().endswith('.pdf'):
-								filename = f"{document.title}"
-							else:
-								filename = f"{document.title}.pdf"
+					# Get the public URL from Supabase
+					file_url = get_public_url(document.file)
 
-						file_response['Content-Disposition'] = f'attachment; filename="{filename}"'
-						return file_response
+					if file_url:
+						# Get the file content using requests
+						response = requests.get(file_url, timeout=30)
+
+						if response.status_code == 200:
+							# Create response with file content
+							file_response = HttpResponse(
+								response.content,
+								content_type=response.headers.get('content-type', 'application/octet-stream')
+							)
+
+							# Set filename for download
+							filename = document.file
+							if '.' not in filename and document.title:
+								# Try to infer extension from title
+								if document.title.lower().endswith('.pdf'):
+									filename = f"{document.title}"
+								else:
+									filename = f"{document.title}.pdf"
+
+							file_response['Content-Disposition'] = f'attachment; filename="{filename}"'
+							return file_response
+						else:
+							return Response({'error': 'Failed to fetch file from storage'}, status=500)
 					else:
-						return Response({'error': 'Failed to fetch file from storage'}, status=500)
-				except requests.RequestException as e:
-					logger.error(f"Error fetching file: {e}")
-					return Response({'error': 'Failed to fetch file'}, status=500)
+						return Response({'error': 'Failed to get file URL from Supabase'}, status=500)
+
+				except Exception as supabase_error:
+					logger.error(f"Supabase download error: {supabase_error}")
+					return Response({'error': 'Failed to download file'}, status=500)
 			else:
 				return Response({'error': 'No file available'}, status=404)
 

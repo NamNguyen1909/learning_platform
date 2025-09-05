@@ -251,6 +251,17 @@ const MyCourses = () => {
       }
     }
 
+    const invalidDocs = formData.documents.filter(doc => !doc.toDelete && (
+    !doc.title.trim() ||
+    (doc.type === 'file' && !doc.file && doc.isNew) ||
+    (doc.type === 'youtube' && !doc.youtube_url.trim())
+    ));
+    if (invalidDocs.length > 0) {
+        setSnackbar({ open: true, message: 'Vui lòng điền đầy đủ tiêu đề và file/URL cho tài liệu.', severity: 'error' });
+        setFormLoading(false);
+        return;
+    }
+
     // Get current user to set as instructor
     const currentUser = await authUtils.getCurrentUser();
     if (!currentUser) {
@@ -328,49 +339,52 @@ const MyCourses = () => {
   };
 
   // Handle document operations (create, update, delete)
-  const handleDocumentOperations = async (courseId) => {
+const handleDocumentOperations = async (courseId) => {
     try {
-      // Handle deletions first
-      const documentsToDelete = formData.documents.filter(doc => doc.toDelete && !doc.isNew);
-      for (const doc of documentsToDelete) {
-        await api.delete(endpoints.document.detail(doc.id));
-      }
+        for (const doc of formData.documents) {
+          console.log('Processing document:', doc);
+            if (doc.toDelete && !doc.isNew) {
+                // Xóa doc cũ
+                await api.delete(endpoints.document.delete(doc.id));
+                continue;
+            }
+            if (doc.toDelete) continue; // Skip new deleted
 
-      // Handle updates and creations
-      const documentsToProcess = formData.documents.filter(doc => !doc.toDelete);
-      for (const doc of documentsToProcess) {
-        const docData = new FormData();
-        docData.append('title', doc.title);
-        docData.append('course', courseId);
-        if (doc.type === 'file' && doc.file) {
-          docData.append('file', doc.file);
-        } else if (doc.type === 'youtube' && doc.youtube_url) {
-          docData.append('url', doc.youtube_url);
-        }
+            const docFormData = new FormData();
+            docFormData.append('course', courseId);
+            docFormData.append('title', doc.title);
 
-        if (doc.isNew) {
-          // Create new document
-          await api.post(endpoints.document.create, docData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-          });
-        } else {
-          // Update existing document
-          await api.patch(endpoints.document.detail(doc.id), docData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-          });
+            if (doc.type === 'file') {
+              console.log('File:', doc.file);
+                if (doc.file instanceof File) {  // Chỉ append nếu là file thực
+                    docFormData.append('file', doc.file);
+                } else if (doc.isNew) {
+                    throw new Error('Vui lòng chọn file cho tài liệu mới loại PDF.');
+                } // Cho update, skip nếu không thay file
+            } else if (doc.type === 'youtube') {
+              console.log('YouTube URL:', doc.youtube_url);
+                if (doc.youtube_url.trim()) {
+                    docFormData.append('url', doc.youtube_url);  // Chỉ append nếu không empty
+                } else {
+                    throw new Error('Vui lòng nhập URL YouTube hợp lệ.');
+                }
+            }
+
+            if (doc.isNew) {
+                await api.post(endpoints.document.create, docFormData, {
+                  headers: { 'Content-Type': 'multipart/form-data' }
+                });  // POST mới
+            } else {
+                await api.patch(endpoints.document.update(doc.id), docFormData);  // PATCH update
+            }
         }
-      }
     } catch (error) {
-      console.error('Error handling document operations:', error);
-      setSnackbar({
-        open: true,
-        message: 'Khóa học đã được lưu nhưng có lỗi khi xử lý tài liệu!',
-        severity: 'warning',
-      });
+        console.error('Error handling document operations:', error);
+        setSnackbar({ open: true, message: 'Lỗi xử lý tài liệu: ' + error.message, severity: 'error' });
     }
-  };
+};
 
-  const handleEditClick = async (course) => {
+    const handleEditClick = async (course) => {
     setEditMode(true);
     setEditingCourseId(course.id);
     // Convert tag names to tag objects for Autocomplete
@@ -380,7 +394,8 @@ const MyCourses = () => {
     let existingDocuments = [];
     try {
       const response = await api.get(endpoints.document.list({ course: course.id }));
-      existingDocuments = response.data.results.map(doc => ({
+      console.log('API Documents Response:', response.data.results); // Log dữ liệu trả về
+      existingDocuments = Array.isArray(response.data.results) ? response.data.results.map(doc => ({
         id: doc.id,
         title: doc.title,
         file: null, // Can't prefill file input
@@ -389,7 +404,7 @@ const MyCourses = () => {
         file_url: doc.file, // Keep original file URL
         type: doc.url ? 'youtube' : 'file', // Set type based on content
         youtube_url: doc.url || '',
-      }));
+      })) : [];
     } catch (error) {
       console.error('Error fetching documents:', error);
     }
