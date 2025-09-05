@@ -23,3 +23,7 @@ class CanCURDCourse(permissions.BasePermission):
 class IsAdminOrCenter(permissions.IsAuthenticated):
     def has_permission(self, request, view):
         return super().has_permission(request, view) and request.user.role in ['admin', 'center']
+
+class CanCRUDDocument(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return super().has_permission(request, view) and request.user.role in ['admin', 'instructor']

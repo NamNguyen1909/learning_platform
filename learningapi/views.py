@@ -1,5 +1,7 @@
 import logging
 
+from httpcore import request
+
 logger = logging.getLogger(__name__)
 from django.http import HttpResponse, JsonResponse
 from rest_framework.decorators import api_view, permission_classes
@@ -518,11 +520,19 @@ def generate_file_name(file_obj):
 	base_name = re.sub(r'_+', '_', base_name)
 	timestamp = int(time.time())
 	unique_name = f"{base_name}_{timestamp}{ext}"
+	print(f"[Document] Original file name: {file_obj.name}, Generated unique name: {unique_name}")
 	return unique_name
 
 class DocumentViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPIView,generics.CreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
+
 	serializer_class = DocumentSerializer
-	permission_classes = [permissions.AllowAny]
+
+	def get_permissions(self):
+		if self.action in ['create', 'update', 'partial_update', 'destroy', 'upload']:
+			return [CanCRUDDocument()]
+		if self.action in ['list', 'retrieve','download']:
+			return [permissions.IsAuthenticated()]
+		return [permissions.IsAuthenticated()]
 
 	def get_queryset(self):
 		queryset = Document.objects.all()
@@ -556,7 +566,36 @@ class DocumentViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPI
 		headers = self.get_success_headers(serializer.data)
 		return Response(self.get_serializer(instance).data, status=status.HTTP_201_CREATED, headers=headers)
 
+	def update(self, request, *args, **kwargs):
+		print("[Document] update called")
+		print("request.data:", request.data)
+		print("request.FILES:", request.FILES)
+		# Chuẩn hóa dữ liệu: chuyển các trường từ list sang giá trị đầu tiên
+		raw_data = dict(request.data)
+		data = {}
+		for k, v in raw_data.items():
+			if isinstance(v, list):
+				data[k] = v[0]
+			else:
+				data[k] = v
+		# Nếu có file upload, xử lý upload và gán tên file vào data
+		uploaded_file = request.FILES.get('file')
+		if uploaded_file:
+			file_name = generate_file_name(uploaded_file)
+			saved_name = upload_file(uploaded_file, file_name)
+			print(f"[Document] Uploaded file to: {saved_name}")
+			data['file'] = saved_name
+		instance = self.get_object()
+		serializer = self.get_serializer(instance, data=data, partial=True)
+		if not serializer.is_valid():
+			print("[Document] Serializer errors:", serializer.errors)
+			return Response(serializer.errors, status=400)
+		# Chỉ save uploaded_by và file (nếu có) 1 lần duy nhất
+		serializer.save(uploaded_by=request.user)
+		return Response(serializer.data)
+	
 	def perform_create(self, serializer):
+		print(f"[Document] perform_create called")
 		uploaded_file = self.request.FILES.get('file')
 		file_path = None
 		if uploaded_file:
@@ -570,14 +609,7 @@ class DocumentViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPI
 		
         )
 
-	def perform_update(self, serializer):
-		uploaded_file = self.request.FILES.get('file')
-		if uploaded_file:
-			file_name = generate_file_name(uploaded_file)
-			file_path = upload_file(uploaded_file, file_name)
-			serializer.save(file=file_path, uploaded_by=self.request.user)
-		else:
-			serializer.save(uploaded_by=self.request.user)
+	# perform_update removed, logic đã gộp vào update
 
 	@action(detail=False, methods=['post'], url_path='upload')
 	def upload(self, request):
@@ -585,6 +617,8 @@ class DocumentViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPI
 		title = request.data.get("title")
 		course_id = request.data.get("course_id")
 
+		print("File size to upload:", file.size)
+		print("File type:", type(file))
 		if not file:
 			return Response({"error": "No file uploaded"}, status=status.HTTP_400_BAD_REQUEST)
 

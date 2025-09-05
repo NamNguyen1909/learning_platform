@@ -443,9 +443,11 @@ const MyCourses = () => {
     docData.append('title', documentForm.title);
 
     if (documentForm.type === 'file') {
+      console.log('Submitting file document:', documentForm);
       // Only append file if there's a new file to upload
       if (documentForm.file) {
         docData.append('file', documentForm.file);
+        console.log('Appended file:', documentForm.file);
       }
       // For editing: if no new file is selected, don't send file field
       // Backend will keep the existing file
@@ -460,15 +462,20 @@ const MyCourses = () => {
     try {
       if (editMode) {
         // Existing course: call API immediately
+        console.log('Edit mode')
         docData.append('course', editingCourseId);
+        console.log('editingCourseId:', editingCourseId);
         if (isDocumentEdit) {
           await api.patch(endpoints.document.update(documentForm.id), docData, {
             headers: { 'Content-Type': 'multipart/form-data' }
           });
+          console.log('Patched document:', documentForm.id);
+          console.log('Patch data:', docData);
         } else {
           await api.post(endpoints.document.create, docData, {
             headers: { 'Content-Type': 'multipart/form-data' }
           });
+          console.log('Post new document');
         }
         // Refetch documents after operation
         await fetchCourseDocuments(editingCourseId);
