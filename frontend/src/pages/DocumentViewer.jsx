@@ -35,13 +35,14 @@ const DocumentViewer = () => {
   const [numPages, setNumPages] = useState(null);
   const [pageNumber, setPageNumber] = useState(1);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [hasCourseAccess, setHasCourseAccess] = useState(false);
 
   useEffect(() => {
-    fetchDocument();
+  fetchDocument();
   }, [id]);
 
   useEffect(() => {
-    if (documentData && documentData.file && documentData.file.toLowerCase().endsWith('.pdf')) {
+    if (documentData && hasCourseAccess && documentData.file && documentData.file.toLowerCase().endsWith('.pdf')) {
       loadPdf();
     }
   }, [documentData]);
@@ -53,9 +54,28 @@ const DocumentViewer = () => {
         setError('Vui lòng đăng nhập để xem tài liệu.');
         return;
       }
-
+      // Lấy thông tin document
       const response = await api.get(endpoints.document.detail(id));
       setDocumentData(response.data);
+      // Kiểm tra quyền truy cập: user phải có CourseProgress với course_id tương ứng
+      const courseId = response.data.course?.id || response.data.course;
+      if (!courseId) {
+        setError('Tài liệu không có thông tin khóa học.');
+        return;
+      }
+      // Gọi API lấy danh sách progress của user cho course này
+      try {
+        const progressRes = await api.get(endpoints.courseProgress.list + `?course=${courseId}`);
+        if (Array.isArray(progressRes.data) && progressRes.data.length > 0) {
+          setHasCourseAccess(true);
+        } else {
+          setHasCourseAccess(false);
+          setError('Bạn chưa đăng ký hoặc chưa được cấp quyền truy cập tài liệu này.');
+        }
+      } catch (progressErr) {
+        setHasCourseAccess(false);
+        setError('Không thể kiểm tra quyền truy cập tài liệu.');
+      }
     } catch (err) {
       console.error('Error fetching document:', err);
       if (err.response?.status === 401) {
@@ -114,6 +134,17 @@ const DocumentViewer = () => {
 
   const renderDocumentContent = () => {
     if (!documentData) return null;
+
+    if (!hasCourseAccess) {
+      return (
+        <Box sx={{ textAlign: 'center', py: 4 }}>
+          <Alert severity="error" sx={{ mb: 2 }}>
+            Bạn chưa đăng ký hoặc chưa được cấp quyền truy cập tài liệu này.
+          </Alert>
+          <Button variant="outlined" onClick={handleBack}>Quay lại</Button>
+        </Box>
+      );
+    }
 
     if (documentData.url) {
       const videoId = getYouTubeVideoId(documentData.url);
