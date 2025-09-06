@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import YouTube from 'react-youtube';
+import { useSmartPolling } from '../hooks/useSmartPolling';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Container,
@@ -36,16 +38,110 @@ const DocumentViewer = () => {
   const [pageNumber, setPageNumber] = useState(1);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [hasCourseAccess, setHasCourseAccess] = useState(false);
+  const [completion, setCompletion] = useState(null); // DocumentCompletion object
+  const [completionLoading, setCompletionLoading] = useState(false);
+
+  // Component Video chỉ nhận props, không khai báo lại state/hàm
+  const Video = ({ videoId, completion, handleMarkComplete }) => {
+    const playerRef = React.useRef(null);
+    const [duration, setDuration] = useState(0);
+    const [completed, setCompleted] = useState(false);
+
+    React.useEffect(() => {
+      playerRef.current = null;
+      setDuration(0);
+      setCompleted(false);
+    }, [videoId]);
+
+    useSmartPolling(async () => {
+      const player = playerRef.current;
+      if (!player) {
+        console.log('Polling: player chưa sẵn sàng');
+        return;
+      }
+      if (duration <= 0) {
+        console.log('Polling: duration chưa có');
+        return;
+      }
+      if (completed) {
+        console.log('Polling: đã hoàn thành, không cần check');
+        return;
+      }
+      // if (!completion || completion.is_complete) {
+      //   console.log('Polling: completion chưa có hoặc đã hoàn thành');
+      //   return;
+      // }
+      const currentTime = player.getCurrentTime();
+      console.log(`Video current time: ${currentTime}s / ${duration}s`);
+      if (currentTime / duration >= 0.8) {
+        setCompleted(true);
+        await handleMarkComplete();
+      }
+    }, 10000);
+
+
+    const onReady = (event) => {
+      playerRef.current = event.target;
+      setDuration(event.target.getDuration());
+      console.log('onReady: player đã sẵn sàng', event.target);
+
+    };
+    const onStateChange = (event) => {
+      if (event.data === window.YT.PlayerState.PLAYING) {
+        // Có thể lấy currentTime nếu cần
+      }
+      if (event.data === window.YT.PlayerState.ENDED) {
+        if (!completed && completion && !completion.is_complete) {
+          setCompleted(true);
+          handleMarkComplete();
+        }
+      }
+    };
+    return (
+      <YouTube
+        videoId={videoId}
+        opts={{ width: '100%', height: '390' }}
+        onReady={onReady}
+        onStateChange={onStateChange}
+      />
+    );
+  };
+
+
+
+  // Đánh dấu hoàn thành tài liệu
+  const handleMarkComplete = async () => {
+    try {
+      setCompletionLoading(true);
+      // Gửi user info và document id cho backend
+      const user = await authUtils.getCurrentUser();
+      console.log('Marking document complete for user:', user);
+      console.log('Document ID being marked complete:', id);
+      const res = await api.post(endpoints.documentCompletion.markComplete(id), {
+        user: user?.id,
+        document: id,
+      });
+      console.log('Mark complete response:', res.data);
+      setCompletion(res.data);
+      setSnackbar({ open: true, message: 'Đã đánh dấu hoàn thành tài liệu!', severity: 'success' });
+    } catch (err) {
+      setSnackbar({ open: true, message: 'Không thể đánh dấu hoàn thành.', severity: 'error' });
+    } finally {
+      setCompletionLoading(false);
+    }
+  };
 
   useEffect(() => {
-  fetchDocument();
+    fetchDocument();
   }, [id]);
 
   useEffect(() => {
-    if (documentData && hasCourseAccess && documentData.file && documentData.file.toLowerCase().endsWith('.pdf')) {
-      loadPdf();
+    if (documentData && hasCourseAccess) {
+      if (documentData.file && documentData.file.toLowerCase().endsWith('.pdf')) {
+        loadPdf();
+      }
     }
-  }, [documentData]);
+  }, [documentData, hasCourseAccess]);
 
   const fetchDocument = async () => {
     try {
@@ -132,6 +228,7 @@ const DocumentViewer = () => {
     return (match && match[2].length === 11) ? match[2] : null;
   };
 
+
   const renderDocumentContent = () => {
     if (!documentData) return null;
 
@@ -154,30 +251,12 @@ const DocumentViewer = () => {
             <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>
               {documentData.title}
             </Typography>
-            <Box
-              sx={{
-                position: 'relative',
-                paddingBottom: '56.25%',
-                height: 0,
-                overflow: 'hidden',
-                borderRadius: 2,
-                boxShadow: 3,
-              }}
-            >
-              <iframe
-                src={`https://www.youtube.com/embed/${videoId}`}
-                title={documentData.title}
-                frameBorder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  height: '100%',
-                }}
-              />
+            <Box sx={{ mb: 2 }}>
+                <Video
+                  videoId={videoId}
+                  completion={completion}
+                  handleMarkComplete={handleMarkComplete}
+                />
             </Box>
             {documentData.uploaded_by && (
               <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
@@ -254,8 +333,17 @@ const DocumentViewer = () => {
               >
                 Tải xuống PDF
               </Button>
+              {/* Nút hoàn thành tài liệu */}
+              <Button
+                variant="contained"
+                color="success"
+                disabled={completion?.is_complete || completionLoading}
+                onClick={handleMarkComplete}
+                sx={{ ml: 2 }}
+              >
+                {completion?.is_complete ? 'Đã hoàn thành' : 'Hoàn thành tài liệu'}
+              </Button>
             </Box>
-
             {pdfLoading ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
                 <CircularProgress />

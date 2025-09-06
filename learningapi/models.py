@@ -3,6 +3,7 @@ from cloudinary.models import CloudinaryField
 from cloudinary.uploader import upload
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.utils import timezone
+from django.utils.timezone import localtime
 from django.core.validators import MinValueValidator, MaxValueValidator
 import uuid
 
@@ -125,6 +126,8 @@ class DocumentCompletion(models.Model):
 	completed_at = models.DateTimeField(null=True, blank=True)
 
 	def mark_complete(self):
+		print('Marking document as complete...')
+		print('Self:', self)
 		self.is_complete = True
 		self.completed_at = timezone.now()
 		self.save()
@@ -145,7 +148,7 @@ class DocumentCompletion(models.Model):
 			return
 		# Số document learner đã hoàn thành
 		completed_docs = DocumentCompletion.objects.filter(user=learner, document__course=course, is_complete=True).count()
-		progress.progress = round(completed_docs / total_docs * 100, 2) 
+		progress.progress = round(completed_docs / total_docs * 100, 2)
 		progress.is_completed = progress.progress >= 100
 		progress.save()
 

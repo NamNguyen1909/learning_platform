@@ -219,6 +219,7 @@ AUTH_PASSWORD_VALIDATORS = [
 LANGUAGE_CODE = 'en-us'
 
 TIME_ZONE = env("TIME_ZONE", default="UTC")
+print(f"Using TIME_ZONE: {TIME_ZONE}")
 
 USE_I18N = True
 

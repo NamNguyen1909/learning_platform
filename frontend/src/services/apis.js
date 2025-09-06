@@ -168,6 +168,7 @@ export const endpoints = {
     create: "/api/document-completions/",
     update: (id) => `/api/document-completions/${id}/`,
     delete: (id) => `/api/document-completions/${id}/`,
+    markComplete: (id) => `/api/document-completions/${id}/mark_complete/`,
   },
   question: {
     list: "/api/questions/",

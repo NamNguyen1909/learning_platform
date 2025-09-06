@@ -728,6 +728,26 @@ class DocumentCompletionViewSet(viewsets.ViewSet,generics.ListAPIView,generics.R
 	serializer_class = DocumentCompletionSerializer
 	queryset = DocumentCompletion.objects.all()
 
+	@action(detail=True, methods=['post'], url_path='mark_complete', permission_classes=[IsAuthenticated])
+	def mark_complete(self, request, pk=None):
+		user_id = request.data.get('user')
+		document_id = request.data.get('document') or pk
+		print(f"[DocumentCompletion] mark_complete called with user_id={user_id}, document_id={document_id}")
+		if not user_id or not document_id:
+			return Response({'detail': 'Thiếu user hoặc document.'}, status=400)
+		from django.contrib.auth import get_user_model
+		User = get_user_model()
+		try:
+			user = User.objects.get(pk=user_id)
+		except User.DoesNotExist:
+			return Response({'detail': 'Không tìm thấy user.'}, status=404)
+		completion, created = DocumentCompletion.objects.update_or_create(user=user, document_id=document_id)
+		print(f"[DocumentCompletion] Completion record: {completion}, is_complete={completion.is_complete}, created={created}")
+		if completion.is_complete:
+			return Response(self.serializer_class(completion).data)
+		completion.mark_complete()
+		return Response(self.serializer_class(completion).data)
+
 class QuestionViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPIView,generics.CreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
 	serializer_class = QuestionSerializer
 	queryset = Question.objects.all()
