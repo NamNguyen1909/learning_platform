@@ -1,7 +1,8 @@
 import React from 'react';
-import { Card, CardContent, Typography, Box, CardActions, Button } from '@mui/material';
+import { Card, CardContent, Typography, Box, CardActions, Button, Chip } from '@mui/material';
 
-const CourseCard = ({ course, onClick }) => (
+
+const CourseCard = ({ course, onClick, userRole }) => (
   <Card
     sx={{
       display: 'flex',
@@ -25,9 +26,26 @@ const CourseCard = ({ course, onClick }) => (
       )}
     </Box>
     <CardContent sx={{ flexGrow: 1, p: 2, display: 'flex', flexDirection: 'column', minHeight: 120 }}>
-      <Typography variant="h6" fontWeight={700} noWrap sx={{ color: '#1976d2', mb: 1 }}>
-        {course.title}
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+        <Typography variant="h6" fontWeight={700} noWrap sx={{ color: '#1976d2', flex: 1 }}>
+          {course.title}
+        </Typography>
+        {userRole === 'instructor' && (
+          <Chip
+            label={course.is_published ? 'Đã xuất bản' : 'Nháp'}
+            size="small"
+            sx={{
+              ml: 1,
+              bgcolor: course.is_published ? '#4caf50' : '#ff9800',
+              color: 'white',
+              fontWeight: 600,
+              fontSize: '0.7rem',
+              height: 24,
+              '& .MuiChip-label': { px: 1 }
+            }}
+          />
+        )}
+      </Box>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1, minHeight: 40, maxHeight: 40, overflow: 'hidden', textOverflow: 'ellipsis' }}>
         {course.description}
       </Typography>

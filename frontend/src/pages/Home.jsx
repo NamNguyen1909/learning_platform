@@ -6,6 +6,7 @@ import CourseCard from "../components/CourseCard";
 import Slider from "react-slick";
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
+import authUtils from "../services/auth";
 
 const Banner = () => (
   <Box sx={{
@@ -38,6 +39,7 @@ const Home = () => {
   const [loadingSuggested, setLoadingSuggested] = useState(true);
   const [errorHot, setErrorHot] = useState("");
   const [errorSuggested, setErrorSuggested] = useState("");
+  const [userRole, setUserRole] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -59,6 +61,18 @@ const Home = () => {
         setErrorSuggested("Không thể tải khoá học gợi ý.");
         setLoadingSuggested(false);
       });
+  }, []);
+
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      try {
+        const user = await authUtils.getCurrentUser();
+        setUserRole(user ? user.role : null);
+      } catch {
+        setUserRole(null);
+      }
+    };
+    fetchUserRole();
   }, []);
 
   // Kiểm tra đăng nhập qua localStorage token
@@ -90,7 +104,7 @@ const Home = () => {
               <Slider slidesToShow={3} slidesToScroll={1} infinite autoplay autoplaySpeed={2500} pauseOnHover responsive={[{breakpoint: 1200, settings: {slidesToShow: 3}}, {breakpoint: 900, settings: {slidesToShow: 2}}, {breakpoint: 600, settings: {slidesToShow: 1}}]}>
                 {hotCourses.map((course) => (
                   <Box key={course.id} sx={{ px: 2 }}>
-                    <CourseCard course={course} onClick={() => navigate(`/courses/${course.id}`)} />
+                    <CourseCard course={course} onClick={() => navigate(`/courses/${course.id}`)} userRole={userRole} />
                   </Box>
                 ))}
               </Slider>
@@ -126,7 +140,7 @@ const Home = () => {
                 <Slider slidesToShow={3} slidesToScroll={1} infinite autoplay autoplaySpeed={2500} pauseOnHover responsive={[{breakpoint: 1200, settings: {slidesToShow: 3}}, {breakpoint: 900, settings: {slidesToShow: 2}}, {breakpoint: 600, settings: {slidesToShow: 1}}]}>
                   {suggestedCourses.map((course) => (
                     <Box key={course.id} sx={{ px: 2 }}>
-                      <CourseCard course={course} onClick={() => navigate(`/courses/${course.id}`)} />
+                      <CourseCard course={course} onClick={() => navigate(`/courses/${course.id}`)} userRole={userRole} />
                     </Box>
                   ))}
                 </Slider>

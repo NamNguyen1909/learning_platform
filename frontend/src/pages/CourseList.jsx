@@ -3,6 +3,7 @@ import { Container, Grid, Typography, CircularProgress, Box, Alert, TablePaginat
 import CourseCard from '../components/CourseCard';
 import { useNavigate } from 'react-router-dom';
 import api, { endpoints } from '../services/apis';
+import authUtils from '../services/auth';
 
 const CourseList = () => {
   const [courses, setCourses] = useState([]);
@@ -13,6 +14,7 @@ const CourseList = () => {
   const [search, setSearch] = useState("");
   const [tags, setTags] = useState([]); // all tags
   const [selectedTags, setSelectedTags] = useState([]); // selected tags
+  const [userRole, setUserRole] = useState(null);
   const navigate = useNavigate();
 
   const fetchCourses = async () => {
@@ -46,6 +48,18 @@ const CourseList = () => {
 
   useEffect(() => {
     fetchTags();
+  }, []);
+
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      try {
+        const user = await authUtils.getCurrentUser();
+        setUserRole(user ? user.role : null);
+      } catch {
+        setUserRole(null);
+      }
+    };
+    fetchUserRole();
   }, []);
 
   useEffect(() => {
@@ -104,7 +118,7 @@ const CourseList = () => {
           <Grid container spacing={4} alignItems="stretch">
             {courses.map(course => (
               <Grid key={course.id} size={{xs: 12, sm: 6, md: 4, lg: 4}}>
-                <CourseCard course={course} onClick={() => navigate(`/courses/${course.id}`)} />
+                <CourseCard course={course} onClick={() => navigate(`/courses/${course.id}`)} userRole={userRole} />
               </Grid>
             ))}
           </Grid>

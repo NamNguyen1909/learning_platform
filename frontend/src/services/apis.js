@@ -116,12 +116,14 @@ export const endpoints = {
     updateProfile: "/api/users/current_user/",
   },
   course: {
+    create: "/api/courses/",
     list: "/api/courses/",
     detail: (id) => `/api/courses/${id}/`,
     register: (id) => `/api/courses/${id}/register/`,
     deactivate: (id) => `/api/courses/${id}/deactivate/`,
     hot: "/api/courses/hot/",
     suggested: "/api/courses/suggested/",
+    myCourses:"/api/courses/my-courses/",
   },
   payment: {
     list: "/api/payments/",
@@ -157,6 +159,8 @@ export const endpoints = {
     create: "/api/documents/",
     update: (id) => `/api/documents/${id}/`,
     delete: (id) => `/api/documents/${id}/`,
+    upload: "/api/documents/upload/",
+    download: (id) => `/api/documents/${id}/download/`,
   },
   documentCompletion: {
     list: "/api/document-completions/",
@@ -164,6 +168,7 @@ export const endpoints = {
     create: "/api/document-completions/",
     update: (id) => `/api/document-completions/${id}/`,
     delete: (id) => `/api/document-completions/${id}/`,
+    markComplete: (id) => `/api/document-completions/${id}/mark_complete/`,
   },
   question: {
     list: "/api/questions/",
@@ -256,5 +261,19 @@ export const getUnreadNotifications = async () => {
 // Payment API functions
 export const createCoursePayment = (data) => api.post(endpoints.payment.create, data);
 export const createPaymentUrl = (params) => api.get(endpoints.payment.createPaymentUrl, { params });
+
+// New API call for instructor's own courses
+export const getMyCourses = (params = {}) => {
+  return api.get(endpoints.course.myCourses, { params });
+};
+
+// Document upload API function
+export const uploadDocument = (formData) => {
+  return api.post(endpoints.document.upload, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+};
 
 export default api;

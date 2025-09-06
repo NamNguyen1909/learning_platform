@@ -67,7 +67,7 @@ const MyCoursesProgress = () => {
                         variant="contained"
                         color={getButtonColor(item.progress)}
                         fullWidth
-                        disabled={item.progress >= 100}
+                        
                         onClick={() => navigate(`/courses/${course.id}`)}
 
                       >

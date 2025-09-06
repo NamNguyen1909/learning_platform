@@ -21,6 +21,12 @@ import CourseList from './pages/CourseList';
 import CourseDetail from './pages/CourseDetail';
 import CoursePayment from './pages/CoursePayment';
 import PaymentResult from './pages/PaymentResult';
+import MyCourses from './pages/MyCourses';
+import DocumentViewer from './pages/DocumentViewer';
+
+import 'react-pdf/dist/Page/AnnotationLayer.css';
+import 'react-pdf/dist/Page/TextLayer.css';
+
 
 // Custom hook: lấy access/refresh token từ URL sau khi social login
 function useSocialAuthToken() {
@@ -56,7 +62,9 @@ const AppContent = () => {
                 <Route path="/course-payment/:id" element={<CoursePayment />} />
                 <Route path="/courses/:id/payment" element={<CoursePayment />} />
                 <Route path="/payment/result" element={<PaymentResult />} />
+                <Route path="/my-courses" element={<MyCourses />} />
                 <Route path="/my-coursesprogress" element={<MyCoursesProgress />} />
+                <Route path="/documents/:id" element={<DocumentViewer />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
                 <Route path="/instructors-management" element={<InstructorManagement />} />

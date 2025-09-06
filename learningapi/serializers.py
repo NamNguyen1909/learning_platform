@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import *
+import cloudinary.utils
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -13,27 +14,64 @@ class UserSerializer(serializers.ModelSerializer):
 
 class CourseSerializer(serializers.ModelSerializer):
     instructor = UserSerializer(read_only=True)
-    tags = serializers.StringRelatedField(many=True)
+    tags = serializers.PrimaryKeyRelatedField(queryset=Tag.objects.all(), many=True, required=False)
 
     class Meta:
         model = Course
         fields = ['id', 'title', 'description', 'image', 'instructor', 'price', 'start_date', 'end_date', 'is_active', 'is_published', 'tags', 'created_at', 'updated_at']
 
+    
+    def update(self, instance, validated_data):
+        # Giữ nguyên is_active nếu không truyền lên
+        if 'is_active' not in validated_data:
+            validated_data['is_active'] = instance.is_active
+            print("is_active not in validated_data, keeping existing value:", instance.is_active)
+        return super().update(instance, validated_data)
+    
+    def validate_title(self, value):
+        # Check for duplicate title only on create, not on update
+        if self.instance is None:  # Creating new course
+            if Course.objects.filter(title=value).exists():
+                raise serializers.ValidationError("A course with this title already exists.")
+        else:  # Updating existing course
+            if Course.objects.filter(title=value).exclude(id=self.instance.id).exists():
+                raise serializers.ValidationError("A course with this title already exists.")
+        return value
+
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data['image'] = instance.image.url if instance.image else ''
+        data['tags'] = [tag.name for tag in instance.tags.all()]
         return data
 
 class DocumentSerializer(serializers.ModelSerializer):
+    file = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     uploaded_by = UserSerializer(read_only=True)
+    course = serializers.PrimaryKeyRelatedField(queryset=Course.objects.all(), required=True)
     class Meta:
         model = Document
-        fields = ['id', 'course', 'title', 'file', 'uploaded_by', 'uploaded_at']
+        fields = ['id', 'course', 'title', 'file', 'url', 'uploaded_by', 'uploaded_at']
+
+    def validate(self, data):
+        file = data.get('file')
+        url = data.get('url')
+        if self.instance:  # Update: Kết hợp data + instance
+            file = file if 'file' in data else self.instance.file
+            url = url if 'url' in data else self.instance.url
+        if not file and (not url or url == ''):
+            raise serializers.ValidationError("Either 'file' or a non-empty 'url' must be provided.")
+        return data
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        data['file'] = instance.file.url if instance.file else ''
+        if instance.file:
+            # If file is a string (Supabase URL), use it directly
+            if isinstance(instance.file, str):
+                data['file'] = instance.file
+        else:
+            data['file'] = ''
         return data
+
 
 class DocumentCompletionSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
