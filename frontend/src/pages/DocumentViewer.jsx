@@ -23,56 +23,43 @@ import workerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url'; // Sử dụng 
 pdfjs.GlobalWorkerOptions.workerSrc = workerSrc;
 
 // Move Video outside DocumentViewer to prevent re-mount
-const Video = React.memo(({ videoId, isComplete, handleMarkComplete }) => {
+const Video = React.memo(({ videoId, fetchCompletionStatus, completion, handleMarkComplete }) => {
   const playerRef = React.useRef(null);
   const [duration, setDuration] = useState(0);
-  const [completed, setCompleted] = useState(false);
+  const [localCompleted, setLocalCompleted] = useState(false);
 
   React.useEffect(() => {
     playerRef.current = null;
     setDuration(0);
-    setCompleted(false);
+    setLocalCompleted(false);
   }, [videoId]);
 
+  // Polling: check video progress and always fetch completion status from backend
   useSmartPolling(async () => {
     const player = playerRef.current;
-    if (!player) {
-      console.log('Polling: player chưa sẵn sàng');
-      return;
-    }
-    if (duration <= 0) {
-      console.log('Polling: duration chưa có');
-      return;
-    }
-    if (completed) {
-      console.log('Polling: đã hoàn thành, không cần check');
-      return;
-    }
-    if (isComplete) {
-      console.log('Polling: video đã hoàn thành, không cần check');
-      return;
-    }
+    if (!player) return;
+    if (duration <= 0) return;
+    if (localCompleted) return;
+    await fetchCompletionStatus(); // always fetch from backend
+    if (completion?.is_complete) return;
     const currentTime = player.getCurrentTime();
-    console.log(`Video current time: ${currentTime}s / ${duration}s`);
     if (currentTime / duration >= 0.8) {
-      setCompleted(true);
+      setLocalCompleted(true);
       await handleMarkComplete();
+      await fetchCompletionStatus();
     }
   }, 10000);
 
   const onReady = (event) => {
     playerRef.current = event.target;
     setDuration(event.target.getDuration());
-    console.log('onReady: player đã sẵn sàng', event.target);
   };
-  const onStateChange = (event) => {
-    if (event.data === window.YT.PlayerState.PLAYING) {
-      // Có thể lấy currentTime nếu cần
-    }
+  const onStateChange = async (event) => {
     if (event.data === window.YT.PlayerState.ENDED) {
-      if (!completed && !isComplete) {
-        setCompleted(true);
-        handleMarkComplete();
+      if (!localCompleted && !completion?.is_complete) {
+        setLocalCompleted(true);
+        await handleMarkComplete();
+        await fetchCompletionStatus();
       }
     }
   };
@@ -109,20 +96,31 @@ const DocumentViewer = () => {
 
 
   // Đánh dấu hoàn thành tài liệu
+  const fetchCompletionStatus = async () => {
+    try {
+      const user = await authUtils.getCurrentUser();
+      if (!user) return;
+      const res = await api.get(endpoints.documentCompletion.list + `?user=${user.id}&document=${id}`);
+      if (Array.isArray(res.data) && res.data.length > 0) {
+        setCompletion(res.data[0]);
+      } else {
+        setCompletion(null);
+      }
+    } catch (err) {
+      setCompletion(null);
+    }
+  };
+
   const handleMarkComplete = async () => {
     try {
       setCompletionLoading(true);
-      // Gửi user info và document id cho backend
       const user = await authUtils.getCurrentUser();
-      console.log('Marking document complete for user:', user);
-      console.log('Document ID being marked complete:', id);
       const res = await api.post(endpoints.documentCompletion.markComplete(id), {
         user: user?.id,
         document: id,
       });
-      console.log('Mark complete response:', res.data);
       setCompletion(res.data);
-      console.log('Document marked as complete:', res.data);
+      await fetchCompletionStatus();
     } catch (err) {
       console.error('Error marking document complete:', err);
     } finally {
@@ -134,25 +132,11 @@ const DocumentViewer = () => {
     fetchDocument();
   }, [id]);
 
-  // Kiểm tra trạng thái hoàn thành tài liệu khi documentData thay đổi
+  // Luôn kiểm tra trạng thái hoàn thành khi documentData hoặc id thay đổi
   useEffect(() => {
-    const checkCompletion = async () => {
-      if (!documentData) return;
-      try {
-        const user = await authUtils.getCurrentUser();
-        if (!user) return;
-        // Gọi API lấy DocumentCompletion cho user và document
-        const res = await api.get(endpoints.documentCompletion.list + `?user=${user.id}&document=${id}`);
-        if (Array.isArray(res.data) && res.data.length > 0) {
-          setCompletion(res.data[0]);
-        } else {
-          setCompletion(null);
-        }
-      } catch (err) {
-        setCompletion(null);
-      }
-    };
-    checkCompletion();
+    if (documentData) {
+      fetchCompletionStatus();
+    }
   }, [documentData, id]);
 
   useEffect(() => {
@@ -308,7 +292,8 @@ const DocumentViewer = () => {
             <Box sx={{ mb: 2 }}>
               <Video
                 videoId={videoId}
-                isComplete={completion?.is_complete}
+                fetchCompletionStatus={fetchCompletionStatus}
+                completion={completion}
                 handleMarkComplete={handleMarkComplete}
               />
             </Box>

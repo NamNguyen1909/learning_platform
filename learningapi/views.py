@@ -418,7 +418,7 @@ class CourseViewSet(viewsets.ViewSet,generics.CreateAPIView,generics.UpdateAPIVi
 			notification_type='update',
 			title='Khóa học mới đã được tạo',
 			message=f'Khóa học "{course.title}" đã được tạo thành công.'
-		).send_to_user(course.instructor)
+		).send_to_user(course.instructor,send_email=True)
 
 
 	def update(self, request, *args, **kwargs):
@@ -525,19 +525,6 @@ class CourseProgressViewSet(viewsets.ViewSet,generics.ListAPIView,generics.Retri
 	def get_permissions(self):
 		return [permissions.IsAuthenticated()]
 	
-	def update(self, request, *args, **kwargs):
-		instance = self.get_object()
-		prev_completed = instance.is_completed
-		response = super().update(request, *args, **kwargs)
-		instance.refresh_from_db()
-		if not prev_completed and instance.is_completed:
-			Notification.objects.create(
-				course=instance.course,
-				notification_type='reminder',
-				title='Chúc mừng bạn đã hoàn thành khóa học!',
-				message=f'Bạn đã hoàn thành khóa học "{instance.course.title}".'
-			).send_to_user(instance.learner)
-		return response
 
 def generate_file_name(file_obj):
 	import time, re
@@ -633,10 +620,10 @@ class DocumentViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPI
 			file_path = upload_file(uploaded_file, file_name)  # Upload to Supabase, get path
 			print(f"[Document] File uploaded to: {file_path}")
 			serializer.save(
-            uploaded_by=self.request.user,
-            file=file_path  # Save path, not the file object
+			uploaded_by=self.request.user,
+			file=file_path  # Save path, not the file object
 		
-        )
+		)
 
 	# perform_update removed, logic đã gộp vào update
 
@@ -756,6 +743,18 @@ class DocumentViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPI
 class DocumentCompletionViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPIView,):
 	serializer_class = DocumentCompletionSerializer
 	queryset = DocumentCompletion.objects.all()
+
+	# Override list to always query latest completion from DB
+	def list(self, request, *args, **kwargs):
+		user_id = request.query_params.get('user')
+		document_id = request.query_params.get('document')
+		if user_id and document_id:
+			completions = DocumentCompletion.objects.filter(user_id=user_id, document_id=document_id)
+			serializer = self.get_serializer(completions, many=True)
+			return Response(serializer.data)
+		return super().list(request, *args, **kwargs)
+
+	# mark_complete logic already uses update_or_create, always returns latest
 
 	@action(detail=True, methods=['post'], url_path='mark_complete', permission_classes=[IsAuthenticated])
 	def mark_complete(self, request, pk=None):
@@ -969,374 +968,393 @@ class UserNotificationViewSet(viewsets.ViewSet,generics.ListAPIView,generics.Upd
 
 
 class PaymentViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.ListAPIView, generics.RetrieveAPIView):
-    serializer_class = PaymentSerializer
-    queryset = Payment.objects.all()
-    permission_classes = [IsAuthenticated]
+	serializer_class = PaymentSerializer
+	queryset = Payment.objects.all()
+	permission_classes = [IsAuthenticated]
 
-    def get_queryset(self):
-        user = self.request.user
-        # Users can only see their own payments
-        return Payment.objects.filter(user=user).order_by('-created_at')
-
-    def create(self, request, *args, **kwargs):
-        course_id = request.data.get('course_id')
-        payment_method = request.data.get('payment_method')
-        if not course_id or not payment_method:
-            return Response({'error': 'Missing course_id or payment_method'}, status=400)
-        try:
-            course = Course.objects.get(id=course_id)
-        except Course.DoesNotExist:
-            return Response({'error': 'Course not found'}, status=400)
-        if course.price == 0:
-            return Response({'error': 'Course is free'}, status=400)
-        user = request.user
-        if CourseProgress.objects.filter(learner=user, course=course).exists():
-            return Response({'error': 'Already enrolled'}, status=400)
-        # Generate unique transaction_id
-        import uuid
-        txn_ref = str(uuid.uuid4())
-        payment = Payment.objects.create(
-            user=user,
-            course=course,
-            amount=course.price,
-            payment_method=payment_method,
-            transaction_id=txn_ref,
-            is_paid=False
-        )
-        # Ensure transaction_id matches txn_ref for VNPay
-        payment.transaction_id = txn_ref
-        payment.save()
-        serializer = self.get_serializer(payment)
-        return Response(serializer.data, status=201)
+	def get_queryset(self):
+		user = self.request.user
+		# Users can only see their own payments
+		return Payment.objects.filter(user=user).order_by('-created_at')
+	
+	def create(self, request, *args, **kwargs):
+		course_id = request.data.get('course_id')
+		payment_method = request.data.get('payment_method')
+		if not course_id or not payment_method:
+			return Response({'error': 'Missing course_id or payment_method'}, status=400)
+		try:
+			course = Course.objects.get(id=course_id)
+		except Course.DoesNotExist:
+			return Response({'error': 'Course not found'}, status=400)
+		user = request.user
+		if CourseProgress.objects.filter(learner=user, course=course).exists():
+			return Response({'error': 'Already enrolled'}, status=400)
+		txn_ref = str(uuid.uuid4())
+		if course.price == 0:
+			# Khoá học miễn phí: tạo payment đã thanh toán thành công
+			payment = Payment.objects.create(
+				user=user,
+				course=course,
+				amount=0,
+				payment_method=payment_method,
+				transaction_id=txn_ref,
+				is_paid=True,
+				paid_at=timezone.now()
+			)
+			# Tạo CourseProgress cho user
+			CourseProgress.objects.create(learner=user, course=course)
+			# Tạo notification cho user
+			Notification.objects.create(
+				course=course,
+				notification_type='course_enrollment',
+				title='Đăng ký khoá học miễn phí thành công',
+				message=f'Bạn đã đăng ký khoá học miễn phí \"{course.title}\" thành công. Hãy bắt đầu học ngay!'
+			).send_to_user(user, send_email=True)
+			serializer = self.get_serializer(payment)
+			return Response(serializer.data, status=201)
+		else:
+			# Khoá học có phí: tạo payment chưa thanh toán
+			payment = Payment.objects.create(
+				user=user,
+				course=course,
+				amount=course.price,
+				payment_method=payment_method,
+				transaction_id=txn_ref,
+				is_paid=False
+			)
+			payment.transaction_id = txn_ref
+			payment.save()
+			serializer = self.get_serializer(payment)
+			return Response(serializer.data, status=201)
 	
 
 # ======================================== VNPay ========================================
 def vnpay_encode(value):
-    # Encode giống VNPay: dùng quote_plus để chuyển space thành '+'
-    from urllib.parse import quote_plus
-    return quote_plus(str(value), safe='')
+	# Encode giống VNPay: dùng quote_plus để chuyển space thành '+'
+	from urllib.parse import quote_plus
+	return quote_plus(str(value), safe='')
 
 @csrf_exempt
 def create_payment_url(request):
-    import pytz
-    tz = pytz.timezone("Asia/Ho_Chi_Minh")
+	import pytz
+	tz = pytz.timezone("Asia/Ho_Chi_Minh")
 
-    vnp_TmnCode = os.environ.get('VNPAY_TMN_CODE')
-    vnp_HashSecret = os.environ.get('VNPAY_HASH_SECRET')
+	vnp_TmnCode = os.environ.get('VNPAY_TMN_CODE')
+	vnp_HashSecret = os.environ.get('VNPAY_HASH_SECRET')
 
-    if not vnp_TmnCode or not vnp_HashSecret:
-        return JsonResponse({'error': 'VNPay configuration missing. Please set VNPAY_TMN_CODE and VNPAY_HASH_SECRET environment variables.'}, status=500)
+	if not vnp_TmnCode or not vnp_HashSecret:
+		return JsonResponse({'error': 'VNPay configuration missing. Please set VNPAY_TMN_CODE and VNPAY_HASH_SECRET environment variables.'}, status=500)
 
-    vnp_Url = 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html'
-    # Sử dụng environment variable cho backend URL
-    backend_base_url = os.environ.get('BACKEND_URL', 'http://127.0.0.1:8000').rstrip('/')
-    vnp_ReturnUrl = f'{backend_base_url}/api/vnpay/redirect/'
+	vnp_Url = 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html'
+	# Sử dụng environment variable cho backend URL
+	backend_base_url = os.environ.get('BACKEND_URL', 'http://127.0.0.1:8000').rstrip('/')
+	vnp_ReturnUrl = f'{backend_base_url}/api/vnpay/redirect/'
 
-    #Nhận các thông tin đơn hàng từ request
-    amount = request.GET.get("amount", "10000")  # đơn vị VND
-    payment_id = request.GET.get("payment_id")
-    txn_ref = request.GET.get("txn_ref")
-    order_type = "other"
+	#Nhận các thông tin đơn hàng từ request
+	amount = request.GET.get("amount", "10000")  # đơn vị VND
+	payment_id = request.GET.get("payment_id")
+	txn_ref = request.GET.get("txn_ref")
+	order_type = "other"
 
-    # Nếu có payment_id, lấy txn_ref từ payment.transaction_id
-    if payment_id:
-        try:
-            payment = Payment.objects.get(id=payment_id)
-            txn_ref = payment.transaction_id
-        except Payment.DoesNotExist:
-            return JsonResponse({'error': 'Payment not found'}, status=400)
+	# Nếu có payment_id, lấy txn_ref từ payment.transaction_id
+	if payment_id:
+		try:
+			payment = Payment.objects.get(id=payment_id)
+			txn_ref = payment.transaction_id
+		except Payment.DoesNotExist:
+			return JsonResponse({'error': 'Payment not found'}, status=400)
 
-    #Tạo mã giao dịch và ngày giờ
-    if txn_ref:
-        order_id = txn_ref
-    else:
-        order_id = datetime.now(tz).strftime('%H%M%S')
-    create_date = datetime.now(tz).strftime('%Y%m%d%H%M%S')
-    ip_address = request.META.get('REMOTE_ADDR')
+	#Tạo mã giao dịch và ngày giờ
+	if txn_ref:
+		order_id = txn_ref
+	else:
+		order_id = datetime.now(tz).strftime('%H%M%S')
+	create_date = datetime.now(tz).strftime('%Y%m%d%H%M%S')
+	ip_address = request.META.get('REMOTE_ADDR')
 
-    #Tạo dữ liệu gửi lên VNPay
-    input_data = {
-        "vnp_Version": "2.1.0",
-        "vnp_Command": "pay",
-        "vnp_TmnCode": vnp_TmnCode,
-        "vnp_Amount": str(int(float(amount)) * 100),
-        "vnp_CurrCode": "VND",
-        "vnp_TxnRef": order_id,
-        "vnp_OrderInfo": "Thanh toan don hang",
-        "vnp_OrderType": order_type,
-        "vnp_Locale": "vn",
-        "vnp_ReturnUrl": vnp_ReturnUrl,
-        "vnp_IpAddr": ip_address,
-        "vnp_CreateDate": create_date
-    }
-    
-    #Tạo chữ ký (vnp_SecureHash) để đảm bảo dữ liệu không bị giả mạo
-    query_string = '&'.join(
-        f"{k}={vnpay_encode(v)}"
-        for k, v in sorted(input_data.items())
-        if v
-    )
-    # Chỉ lấy các key có giá trị, không lấy vnp_SecureHash
-    hash_data = '&'.join(
-        f"{k}={vnpay_encode(v)}"
-        for k, v in sorted(input_data.items())
-        if v and k != "vnp_SecureHash"
-    )
+	#Tạo dữ liệu gửi lên VNPay
+	input_data = {
+		"vnp_Version": "2.1.0",
+		"vnp_Command": "pay",
+		"vnp_TmnCode": vnp_TmnCode,
+		"vnp_Amount": str(int(float(amount)) * 100),
+		"vnp_CurrCode": "VND",
+		"vnp_TxnRef": order_id,
+		"vnp_OrderInfo": "Thanh toan don hang",
+		"vnp_OrderType": order_type,
+		"vnp_Locale": "vn",
+		"vnp_ReturnUrl": vnp_ReturnUrl,
+		"vnp_IpAddr": ip_address,
+		"vnp_CreateDate": create_date
+	}
+	
+	#Tạo chữ ký (vnp_SecureHash) để đảm bảo dữ liệu không bị giả mạo
+	query_string = '&'.join(
+		f"{k}={vnpay_encode(v)}"
+		for k, v in sorted(input_data.items())
+		if v
+	)
+	# Chỉ lấy các key có giá trị, không lấy vnp_SecureHash
+	hash_data = '&'.join(
+		f"{k}={vnpay_encode(v)}"
+		for k, v in sorted(input_data.items())
+		if v and k != "vnp_SecureHash"
+	)
 
-    secure_hash = hmac.new(
-        bytes(vnp_HashSecret, 'utf-8'),
-        bytes(hash_data, 'utf-8'),
-        hashlib.sha512
-    ).hexdigest()
-    # Tạo payment_url đầy đủ để redirect người dùng
-    payment_url = f"{vnp_Url}?{query_string}&vnp_SecureHash={secure_hash}"
-    #Trả kết quả về frontend
-    return JsonResponse({"payment_url": payment_url})
+	secure_hash = hmac.new(
+		bytes(vnp_HashSecret, 'utf-8'),
+		bytes(hash_data, 'utf-8'),
+		hashlib.sha512
+	).hexdigest()
+	# Tạo payment_url đầy đủ để redirect người dùng
+	payment_url = f"{vnp_Url}?{query_string}&vnp_SecureHash={secure_hash}"
+	#Trả kết quả về frontend
+	return JsonResponse({"payment_url": payment_url})
 
 def vnpay_response_message(code):
-    mapping = {
-        "00": "Giao dịch thành công.",
-        "07": "Trừ tiền thành công. Giao dịch bị nghi ngờ (liên quan tới lừa đảo, giao dịch bất thường).",
-        "09": "Thẻ/Tài khoản chưa đăng ký InternetBanking.",
-        "10": "Xác thực thông tin thẻ/tài khoản không đúng quá 3 lần.",
-        "11": "Hết hạn chờ thanh toán. Vui lòng thực hiện lại giao dịch.",
-        "12": "Thẻ/Tài khoản bị khóa.",
-        "13": "Sai mật khẩu xác thực giao dịch (OTP).",
-        "24": "Khách hàng hủy giao dịch.",
-        "51": "Tài khoản không đủ số dư.",
-        "65": "Tài khoản vượt quá hạn mức giao dịch trong ngày.",
-        "75": "Ngân hàng thanh toán đang bảo trì.",
-        "79": "Sai mật khẩu thanh toán quá số lần quy định.",
-        "99": "Lỗi khác hoặc không xác định.",
-    }
-    return mapping.get(code, "Lỗi không xác định.")
+	mapping = {
+		"00": "Giao dịch thành công.",
+		"07": "Trừ tiền thành công. Giao dịch bị nghi ngờ (liên quan tới lừa đảo, giao dịch bất thường).",
+		"09": "Thẻ/Tài khoản chưa đăng ký InternetBanking.",
+		"10": "Xác thực thông tin thẻ/tài khoản không đúng quá 3 lần.",
+		"11": "Hết hạn chờ thanh toán. Vui lòng thực hiện lại giao dịch.",
+		"12": "Thẻ/Tài khoản bị khóa.",
+		"13": "Sai mật khẩu xác thực giao dịch (OTP).",
+		"24": "Khách hàng hủy giao dịch.",
+		"51": "Tài khoản không đủ số dư.",
+		"65": "Tài khoản vượt quá hạn mức giao dịch trong ngày.",
+		"75": "Ngân hàng thanh toán đang bảo trì.",
+		"79": "Sai mật khẩu thanh toán quá số lần quy định.",
+		"99": "Lỗi khác hoặc không xác định.",
+	}
+	return mapping.get(code, "Lỗi không xác định.")
 
 def vnpay_redirect(request):
-    """
-    Xử lý callback từ VNPay sau khi thanh toán.
-    """
-    from_app = request.GET.get('from') == 'app'
-    vnp_ResponseCode = request.GET.get('vnp_ResponseCode')
-    vnp_TxnRef = request.GET.get('vnp_TxnRef')
+	"""
+	Xử lý callback từ VNPay sau khi thanh toán.
+	"""
+	from_app = request.GET.get('from') == 'app'
+	vnp_ResponseCode = request.GET.get('vnp_ResponseCode')
+	vnp_TxnRef = request.GET.get('vnp_TxnRef')
 
-    if vnp_ResponseCode is None:
-        return HttpResponse("Thiếu tham số vnp_ResponseCode.", status=400)
+	if vnp_ResponseCode is None:
+		return HttpResponse("Thiếu tham số vnp_ResponseCode.", status=400)
 
-    message = vnpay_response_message(vnp_ResponseCode)
-    payment_success = vnp_ResponseCode == '00'
+	message = vnpay_response_message(vnp_ResponseCode)
+	payment_success = vnp_ResponseCode == '00'
 
-    payment = None
-    try:
-        payment = Payment.objects.get(transaction_id=vnp_TxnRef)
-        if payment_success:
-            payment.is_paid = True
-            payment.paid_at = timezone.now()
-            payment.save()
+	payment = None
+	try:
+		payment = Payment.objects.get(transaction_id=vnp_TxnRef)
+		if payment_success:
+			payment.is_paid = True
+			payment.paid_at = timezone.now()
+			payment.save()
 
-            # HOÀN TẤT ENROLLMENT khi VNPay thanh toán thành công
-            try:
-                course = payment.course
-                user = payment.user
+			# HOÀN TẤT ENROLLMENT khi VNPay thanh toán thành công
+			try:
+				course = payment.course
+				user = payment.user
 
-                # Tạo CourseProgress nếu chưa tồn tại
-                if not CourseProgress.objects.filter(learner=user, course=course).exists():
-                    CourseProgress.objects.create(learner=user, course=course)
+				# Tạo CourseProgress nếu chưa tồn tại
+				if not CourseProgress.objects.filter(learner=user, course=course).exists():
+					CourseProgress.objects.create(learner=user, course=course)
 
-                # Tạo thông báo thanh toán thành công và enrollment
-                try:
-                    Notification.objects.create(
+				# Tạo thông báo thanh toán thành công và enrollment
+				try:
+					Notification.objects.create(
 						course=course,
-                        notification_type='course_enrollment',
-                        title='Thanh toán VNPay thành công',
-                        message=f'Thanh toán VNPay thành công và đã đăng ký khóa học "{course.title}". Số tiền: {payment.amount:,.0f} VNĐ'
-                    ).send_to_user(user)
-                    logger.info(f"Created VNPay success notification for course enrollment {course.id}")
-                except Exception as notification_error:
-                    logger.error(f"Failed to create VNPay success notification: {notification_error}")
+						notification_type='course_enrollment',
+						title='Thanh toán VNPay thành công',
+						message=f'Thanh toán VNPay thành công và đã đăng ký khóa học "{course.title}". Số tiền: {payment.amount:,.0f} VNĐ'
+					).send_to_user(user,send_email=True)
+					logger.info(f"Created VNPay success notification for course enrollment {course.id}")
+				except Exception as notification_error:
+					logger.error(f"Failed to create VNPay success notification: {notification_error}")
 
-                logger.info(f"VNPay payment successful and enrollment completed for course {course.id}")
-            except Exception as enrollment_error:
-                logger.error(f"Failed to complete enrollment after VNPay payment {vnp_TxnRef}: {enrollment_error}")
+				logger.info(f"VNPay payment successful and enrollment completed for course {course.id}")
+			except Exception as enrollment_error:
+				logger.error(f"Failed to complete enrollment after VNPay payment {vnp_TxnRef}: {enrollment_error}")
 
-            logger.info(f"VNPay payment successful for transaction {vnp_TxnRef}")
-        else:
-            payment.is_paid = False
-            payment.save()
+			logger.info(f"VNPay payment successful for transaction {vnp_TxnRef}")
+		else:
+			payment.is_paid = False
+			payment.save()
 
-            # Tạo notification cho user về thanh toán thất bại
-            try:
-                course = payment.course
-                user = payment.user
-                Notification.objects.create(
-                    user=user,
-                    notification_type='payment_failed',
-                    title='Thanh toán VNPay thất bại',
-                    message=f'Thanh toán VNPay thất bại cho khóa học "{course.title}". Lý do: {message}. Vui lòng thử lại.'
-                )
-                logger.info(f"Created VNPay failure notification for course {course.id}")
-            except Exception as notification_error:
-                logger.error(f"Failed to create VNPay failure notification: {notification_error}")
+			# Tạo notification cho user về thanh toán thất bại
+			try:
+				course = payment.course
+				user = payment.user
+				Notification.objects.create(
+					user=user,
+					notification_type='payment_failed',
+					title='Thanh toán VNPay thất bại',
+					message=f'Thanh toán VNPay thất bại cho khóa học "{course.title}". Lý do: {message}. Vui lòng thử lại.'
+				)
+				logger.info(f"Created VNPay failure notification for course {course.id}")
+			except Exception as notification_error:
+				logger.error(f"Failed to create VNPay failure notification: {notification_error}")
 
-            logger.warning(f"VNPay payment failed for transaction {vnp_TxnRef}: {message}")
-    except Payment.DoesNotExist:
-        logger.error(f"Payment not found for transaction {vnp_TxnRef}")
+			logger.warning(f"VNPay payment failed for transaction {vnp_TxnRef}: {message}")
+	except Payment.DoesNotExist:
+		logger.error(f"Payment not found for transaction {vnp_TxnRef}")
 
-    # Tạo frontend redirect URL với thông tin course để không mất context
-    # Sử dụng environment variable cho frontend URL
-    frontend_base_url = os.environ.get('FRONTEND_URL', 'http://localhost:5173').rstrip('/')
+	# Tạo frontend redirect URL với thông tin course để không mất context
+	# Sử dụng environment variable cho frontend URL
+	frontend_base_url = os.environ.get('FRONTEND_URL', 'http://localhost:5173').rstrip('/')
 
-    if payment_success:
-        # Khi thành công: về trang kết quả thanh toán với thông tin course
-        course_id = payment.course.id if payment and hasattr(payment, 'course') else ''
-        frontend_url = f"{frontend_base_url}/payment/result?payment_result=success&message={urllib.parse.quote(message)}&course_id={course_id}&auto_refresh=true"
-    else:
-        # Khi thất bại: về trang kết quả thanh toán với thông tin course
-        course_id = payment.course.id if payment and hasattr(payment, 'course') else ''
-        frontend_url = f"{frontend_base_url}/payment/result?payment_result=failed&message={urllib.parse.quote(message)}&course_id={course_id}"
-    
-    # Always redirect to frontend
-    return HttpResponse(f"""
-        <!DOCTYPE html>
-        <html lang="vi">
-        <head>
-            <meta charset="utf-8"/>
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Kết quả thanh toán</title>
-            <style>
-                * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-                body {{ 
-                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    display: flex; 
-                    align-items: center; 
-                    justify-content: center; 
-                    height: 100vh;
-                    margin: 0;
-                }}
-                .container {{
-                    background: white;
-                    border-radius: 20px;
-                    box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-                    padding: 40px;
-                    text-align: center;
-                    max-width: 500px;
-                    width: 90%;
-                    position: relative;
-                    overflow: hidden;
-                }}
-                .container::before {{
-                    content: '';
-                    position: absolute;
-                    top: 0;
-                    left: 0;
-                    right: 0;
-                    height: 4px;
-                    background: {'linear-gradient(90deg, #4CAF50, #81C784)' if payment_success else 'linear-gradient(90deg, #f44336, #ef5350)'};
-                }}
-                .icon {{
-                    font-size: 4rem;
-                    margin-bottom: 20px;
-                    animation: bounce 1s ease-in-out;
-                }}
-                .success {{ color: #4CAF50; }}
-                .error {{ color: #f44336; }}
-                .title {{
-                    font-size: 1.8rem;
-                    font-weight: 600;
-                    margin-bottom: 15px;
-                    color: #333;
-                }}
-                .message {{
-                    font-size: 1.1rem;
-                    color: #666;
-                    margin-bottom: 30px;
-                    line-height: 1.5;
-                }}
-                .redirect-info {{
-                    background: #f8f9fa;
-                    border-radius: 10px;
-                    padding: 15px;
-                    color: #6c757d;
-                    font-size: 0.9rem;
-                    margin-top: 20px;
-                }}
-                .loading {{
-                    display: inline-block;
-                    width: 20px;
-                    height: 20px;
-                    border: 2px solid #f3f3f3;
-                    border-top: 2px solid #667eea;
-                    border-radius: 50%;
-                    animation: spin 1s linear infinite;
-                    margin-left: 10px;
-                }}
-                @keyframes bounce {{
-                    0%, 20%, 60%, 100% {{ transform: translateY(0); }}
-                    40% {{ transform: translateY(-10px); }}
-                    80% {{ transform: translateY(-5px); }}
-                }}
-                @keyframes spin {{
-                    0% {{ transform: rotate(0deg); }}
-                    100% {{ transform: rotate(360deg); }}
-                }}
-                .btn {{
-                    background: #667eea;
-                    color: white;
-                    border: none;
-                    padding: 12px 30px;
-                    border-radius: 25px;
-                    font-size: 1rem;
-                    cursor: pointer;
-                    transition: all 0.3s ease;
-                    text-decoration: none;
-                    display: inline-block;
-                    margin-top: 20px;
-                }}
-                .btn:hover {{
-                    background: #5a67d8;
-                    transform: translateY(-2px);
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-                }}
-            </style>
-            <script>
-                let countdown = 3;
-                function updateCountdown() {{
-                    document.getElementById('countdown').textContent = countdown;
-                    if (countdown > 0) {{
-                        countdown--;
-                        setTimeout(updateCountdown, 1000);
-                    }} else {{
-                        window.location.href = "{frontend_url}";
-                    }}
-                }}
-                document.addEventListener('DOMContentLoaded', function() {{
-                    updateCountdown();
-                }});
-                
-                function redirectNow() {{
-                    window.location.href = "{frontend_url}";
-                }}
-            </script>
-        </head>
-        <body>
-            <div class="container">
-                <div class="icon {'success' if payment_success else 'error'}">
-                    {'🎉' if payment_success else '😔'}
-                </div>
-                <div class="title">
-                    {'Thanh toán thành công!' if payment_success else 'Thanh toán thất bại!'}
-                </div>
-                <div class="message">
-                    {message}
-                </div>
-                <div class="redirect-info">
-                    <div>Tự động chuyển hướng sau <span id="countdown">3</span> giây...</div>
-                    <div class="loading"></div>
-                </div>
-                <button class="btn" onclick="redirectNow()">
-                    Quay lại ngay
-                </button>
-            </div>
-        </body>
-        </html>
-    """)
+	if payment_success:
+		# Khi thành công: về trang kết quả thanh toán với thông tin course
+		course_id = payment.course.id if payment and hasattr(payment, 'course') else ''
+		frontend_url = f"{frontend_base_url}/payment/result?payment_result=success&message={urllib.parse.quote(message)}&course_id={course_id}&auto_refresh=true"
+	else:
+		# Khi thất bại: về trang kết quả thanh toán với thông tin course
+		course_id = payment.course.id if payment and hasattr(payment, 'course') else ''
+		frontend_url = f"{frontend_base_url}/payment/result?payment_result=failed&message={urllib.parse.quote(message)}&course_id={course_id}"
+	
+	# Always redirect to frontend
+	return HttpResponse(f"""
+		<!DOCTYPE html>
+		<html lang="vi">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1.0">
+			<title>Kết quả thanh toán</title>
+			<style>
+				* {{ margin: 0; padding: 0; box-sizing: border-box; }}
+				body {{ 
+					font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+					background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+					display: flex; 
+					align-items: center; 
+					justify-content: center; 
+					height: 100vh;
+					margin: 0;
+				}}
+				.container {{
+					background: white;
+					border-radius: 20px;
+					box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+					padding: 40px;
+					text-align: center;
+					max-width: 500px;
+					width: 90%;
+					position: relative;
+					overflow: hidden;
+				}}
+				.container::before {{
+					content: '';
+					position: absolute;
+					top: 0;
+					left: 0;
+					right: 0;
+					height: 4px;
+					background: {'linear-gradient(90deg, #4CAF50, #81C784)' if payment_success else 'linear-gradient(90deg, #f44336, #ef5350)'};
+				}}
+				.icon {{
+					font-size: 4rem;
+					margin-bottom: 20px;
+					animation: bounce 1s ease-in-out;
+				}}
+				.success {{ color: #4CAF50; }}
+				.error {{ color: #f44336; }}
+				.title {{
+					font-size: 1.8rem;
+					font-weight: 600;
+					margin-bottom: 15px;
+					color: #333;
+				}}
+				.message {{
+					font-size: 1.1rem;
+					color: #666;
+					margin-bottom: 30px;
+					line-height: 1.5;
+				}}
+				.redirect-info {{
+					background: #f8f9fa;
+					border-radius: 10px;
+					padding: 15px;
+					color: #6c757d;
+					font-size: 0.9rem;
+					margin-top: 20px;
+				}}
+				.loading {{
+					display: inline-block;
+					width: 20px;
+					height: 20px;
+					border: 2px solid #f3f3f3;
+					border-top: 2px solid #667eea;
+					border-radius: 50%;
+					animation: spin 1s linear infinite;
+					margin-left: 10px;
+				}}
+				@keyframes bounce {{
+					0%, 20%, 60%, 100% {{ transform: translateY(0); }}
+					40% {{ transform: translateY(-10px); }}
+					80% {{ transform: translateY(-5px); }}
+				}}
+				@keyframes spin {{
+					0% {{ transform: rotate(0deg); }}
+					100% {{ transform: rotate(360deg); }}
+				}}
+				.btn {{
+					background: #667eea;
+					color: white;
+					border: none;
+					padding: 12px 30px;
+					border-radius: 25px;
+					font-size: 1rem;
+					cursor: pointer;
+					transition: all 0.3s ease;
+					text-decoration: none;
+					display: inline-block;
+					margin-top: 20px;
+				}}
+				.btn:hover {{
+					background: #5a67d8;
+					transform: translateY(-2px);
+					box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+				}}
+			</style>
+			<script>
+				let countdown = 3;
+				function updateCountdown() {{
+					document.getElementById('countdown').textContent = countdown;
+					if (countdown > 0) {{
+						countdown--;
+						setTimeout(updateCountdown, 1000);
+					}} else {{
+						window.location.href = "{frontend_url}";
+					}}
+				}}
+				document.addEventListener('DOMContentLoaded', function() {{
+					updateCountdown();
+				}});
+				
+				function redirectNow() {{
+					window.location.href = "{frontend_url}";
+				}}
+			</script>
+		</head>
+		<body>
+			<div class="container">
+				<div class="icon {'success' if payment_success else 'error'}">
+					{'🎉' if payment_success else '😔'}
+				</div>
+				<div class="title">
+					{'Thanh toán thành công!' if payment_success else 'Thanh toán thất bại!'}
+				</div>
+				<div class="message">
+					{message}
+				</div>
+				<div class="redirect-info">
+					<div>Tự động chuyển hướng sau <span id="countdown">3</span> giây...</div>
+					<div class="loading"></div>
+				</div>
+				<button class="btn" onclick="redirectNow()">
+					Quay lại ngay
+				</button>
+			</div>
+		</body>
+		</html>
+	""")

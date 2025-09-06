@@ -78,20 +78,26 @@ const CoursePayment = () => {
 
       const paymentId = paymentResponse.data.id;
 
-      // Create VNPay payment URL
-      const paymentUrlData = {
-        payment_id: paymentId,
-        amount: course.price,
-        course_name: course.title,
-      };
+      if (course.price > 0) {
+        // Create VNPay payment URL
+        const paymentUrlData = {
+          payment_id: paymentId,
+          amount: course.price,
+          course_name: course.title,
+        };
 
-      console.log('Sending payment URL data:', paymentUrlData);
+        console.log('Sending payment URL data:', paymentUrlData);
 
-      const paymentUrlResponse = await createPaymentUrl(paymentUrlData);
-      console.log('Payment URL response:', paymentUrlResponse);
+        const paymentUrlResponse = await createPaymentUrl(paymentUrlData);
+        console.log('Payment URL response:', paymentUrlResponse);
 
-      // Redirect to VNPay
-      window.location.href = paymentUrlResponse.data.payment_url;
+        // Redirect to VNPay
+        window.location.href = paymentUrlResponse.data.payment_url;
+      } else {
+          // Khoá học miễn phí: chuyển hướng sang trang xác nhận thành công, có hoá đơn 0 đồng
+          const message = encodeURIComponent('Thanh toán thành công. Bạn đã đăng ký khóa học miễn phí!');
+          navigate(`/payment/result?payment_result=success&message=${message}&course_id=${courseId}&auto_refresh=true`);
+      }
     } catch (err) {
       console.error('Payment error:', err);
       console.error('Error response data:', err.response?.data);

@@ -67,7 +67,7 @@ class Tag(models.Model):
 # Course Model
 class Course(models.Model):
 	title = models.CharField(max_length=255, db_index=True, unique=True)
-	description = models.TextField()
+	description = models.TextField(null=True, blank=True)
 	image = CloudinaryField('image', folder='learning_platform/course_images', null=True, blank=True)
 	instructor = models.ForeignKey('User', on_delete=models.CASCADE, related_name='courses', limit_choices_to={'role': UserRole.INSTRUCTOR})
 	price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], default=0)
@@ -78,6 +78,13 @@ class Course(models.Model):
 	tags = models.ManyToManyField('Tag', blank=True, related_name='courses')
 	created_at = models.DateTimeField(auto_now_add=True)
 	updated_at = models.DateTimeField(auto_now=True)
+
+		
+	#ghi đè update đễ mỗi lần update cập nhật lại tất cả courseprogress
+	def save(self, *args, **kwargs):
+		super().save(*args, **kwargs)
+		CourseProgress.update_all_progress(self)
+
 
 	def __str__(self):
 		return self.title
@@ -91,6 +98,40 @@ class CourseProgress(models.Model):
 	progress = models.FloatField(default=0, validators=[MinValueValidator(0), MaxValueValidator(100)])  # % hoàn thành
 	is_completed = models.BooleanField(default=False)
 	updated_at = models.DateTimeField(auto_now=True)
+
+	@staticmethod
+	def update_progress_for_user(learner, course):
+		try:
+			progress = CourseProgress.objects.get(learner=learner, course=course)
+		except CourseProgress.DoesNotExist:
+			return
+		total_docs = course.documents.count()
+		if total_docs == 0:
+			progress.progress = 0
+			progress.is_completed = False
+			progress.save()
+			return
+		completed_docs = DocumentCompletion.objects.filter(user=learner, document__course=course, is_complete=True).count()
+		progress.progress = round(completed_docs / total_docs * 100, 2)
+		progress.is_completed = progress.progress >= 100
+		if progress.is_completed:
+			Notification.objects.create(
+				course=course,
+				notification_type='course_enrollment',
+				title='Chúc mừng bạn đã hoàn thành khoá học!',
+				message=f'Xin chào {learner.full_name or learner.username}, bạn đã hoàn thành khoá học "{course.title}". Hãy tiếp tục học các khoá học khác nhé!'
+			).send_to_user(learner, send_email=True)
+		progress.save()
+
+	@classmethod
+	def update_all_progress(cls, course):
+		learners = cls.objects.filter(course=course).values_list('learner', flat=True)
+		for learner_id in learners:
+			learner = User.objects.get(id=learner_id)
+			cls.update_progress_for_user(learner, course)
+
+	def update_progress(self):
+		CourseProgress.update_progress_for_user(self.learner, self.course)
 
 	class Meta:
 		unique_together = ('learner', 'course')
@@ -135,22 +176,7 @@ class DocumentCompletion(models.Model):
 		from .models import CourseProgress
 		learner = self.user
 		course = self.document.course
-		try:
-			progress = CourseProgress.objects.get(learner=learner, course=course)
-		except CourseProgress.DoesNotExist:
-			return
-		# Tổng số document của khoá học
-		total_docs = course.documents.count()
-		if total_docs == 0:
-			progress.progress = 0
-			progress.is_completed = False
-			progress.save()
-			return
-		# Số document learner đã hoàn thành
-		completed_docs = DocumentCompletion.objects.filter(user=learner, document__course=course, is_complete=True).count()
-		progress.progress = round(completed_docs / total_docs * 100, 2)
-		progress.is_completed = progress.progress >= 100
-		progress.save()
+		CourseProgress.update_progress_for_user(learner, course)
 
 	class Meta:
 		unique_together = ('user', 'document')
@@ -277,7 +303,7 @@ class Notification(models.Model):
 				<div class="content">
 					<p>Xin chào {user.full_name or user.username},</p>
 					<p>{self.message}</p>
-					<p>Trân trọng,<br>Đội ngũ Learning Platform</p>
+					<p>Trân trọng,<br>Đội ngũ Smart Learning Platform</p>
 				</div>
 				<div class="footer">
 					<p>Nếu bạn có bất kỳ câu hỏi nào, vui lòng liên hệ với chúng tôi.</p>
