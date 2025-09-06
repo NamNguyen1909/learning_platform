@@ -410,10 +410,31 @@ class CourseViewSet(viewsets.ViewSet,generics.CreateAPIView,generics.UpdateAPIVi
 		if self.action == 'my_courses':
 			return [IsInstructor()]
 		return [permissions.IsAuthenticated()]
-
+	
 	def perform_create(self, serializer):
-		# Automatically set the instructor to the current user
-		serializer.save(instructor=self.request.user)
+		course = serializer.save(instructor=self.request.user)
+		Notification.objects.create(
+			course=course,
+			notification_type='update',
+			title='Khóa học mới đã được tạo',
+			message=f'Khóa học "{course.title}" đã được tạo thành công.'
+		).send_to_user(course.instructor)
+
+
+	def update(self, request, *args, **kwargs):
+		response = super().update(request, *args, **kwargs)
+		course_id = kwargs.get('pk')
+		try:
+			course = Course.objects.get(pk=course_id)
+			Notification.objects.create(
+				course=course,
+				notification_type='update',
+				title='Khóa học đã được chỉnh sửa',
+				message=f'Khóa học "{course.title}" đã được chỉnh sửa.'
+			).send_to_user(course.instructor)
+		except Course.DoesNotExist:
+			pass
+		return response
 	
 	@action(detail=False, methods=['get'], url_path='my-courses')
 	def my_courses(self, request):
@@ -443,15 +464,7 @@ class CourseViewSet(viewsets.ViewSet,generics.CreateAPIView,generics.UpdateAPIVi
 		course.is_active = False
 		course.save()
 		return Response({"success": "Course deactivated."})
-	@action(detail=True, methods=['post'], url_path='register')
-	def register(self, request, pk=None):
-		user = request.user
-		course = self.get_object()
-		from .models import CourseProgress
-		if CourseProgress.objects.filter(learner=user, course=course).exists():
-			return Response({'error': 'Bạn đã đăng ký khóa học này.'}, status=400)
-		CourseProgress.objects.create(learner=user, course=course)
-		return Response({'success': 'Đăng ký khóa học thành công.'})
+	
 
 	@action(detail=False, methods=['get'], url_path='hot')
 	def hot_courses(self, request):
@@ -511,6 +524,20 @@ class CourseProgressViewSet(viewsets.ViewSet,generics.ListAPIView,generics.Retri
 
 	def get_permissions(self):
 		return [permissions.IsAuthenticated()]
+	
+	def update(self, request, *args, **kwargs):
+		instance = self.get_object()
+		prev_completed = instance.is_completed
+		response = super().update(request, *args, **kwargs)
+		instance.refresh_from_db()
+		if not prev_completed and instance.is_completed:
+			Notification.objects.create(
+				course=instance.course,
+				notification_type='reminder',
+				title='Chúc mừng bạn đã hoàn thành khóa học!',
+				message=f'Bạn đã hoàn thành khóa học "{instance.course.title}".'
+			).send_to_user(instance.learner)
+		return response
 
 def generate_file_name(file_obj):
 	import time, re
@@ -530,8 +557,10 @@ class DocumentViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPI
 	def get_permissions(self):
 		if self.action in ['create', 'update', 'partial_update', 'destroy', 'upload']:
 			return [CanCRUDDocument()]
-		if self.action in ['list', 'retrieve','download']:
+		if self.action in [ 'retrieve','download']:
 			return [permissions.IsAuthenticated()]
+		if self.action in ['list']:
+			return [permissions.AllowAny()]
 		return [permissions.IsAuthenticated()]
 
 	def get_queryset(self):
@@ -757,6 +786,40 @@ class AnswerViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPIVi
 	queryset = Answer.objects.all()
 
 class ReviewViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPIView,generics.CreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
+	def perform_create(self, serializer):
+		review = serializer.save()
+		Notification.objects.create(
+			course=review.course,
+			notification_type='update',
+			title='Đánh giá mới cho khóa học',
+			message=f'{review.user.username} đã gửi đánh giá cho khóa học "{review.course.title}".'
+		).send_to_user(review.course.instructor)
+		# Nếu là reply cho review khác, gửi notification cho chủ review gốc
+		if review.parent_review:
+			parent_user = review.parent_review.user
+			if parent_user and parent_user != review.user:
+				Notification.objects.create(
+					course=review.course,
+					notification_type='update',
+					title='Phản hồi mới cho đánh giá của bạn',
+					message=f'{review.user.username} đã phản hồi đánh giá của bạn trong khóa học "{review.course.title}".'
+				).send_to_user(parent_user)
+	def perform_create(self, serializer):
+		answer = serializer.save()
+		Notification.objects.create(
+			course=answer.question.course,
+			notification_type='update',
+			title='Trả lời mới cho câu hỏi',
+			message=f'{answer.answered_by.username} đã trả lời câu hỏi trong khóa học "{answer.question.course.title}".'
+		).send_to_user(answer.question.asked_by)
+	def perform_create(self, serializer):
+		question = serializer.save()
+		Notification.objects.create(
+			course=question.course,
+			notification_type='update',
+			title='Câu hỏi mới trong khóa học',
+			message=f'{question.asked_by.username} đã gửi câu hỏi cho khóa học "{question.course.title}".'
+		).send_to_user(question.course.instructor)
 	serializer_class = ReviewSerializer
 	queryset = Review.objects.all()
 	pagination_class = ReviewPagination
@@ -945,6 +1008,7 @@ class PaymentViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.ListAPIV
         payment.save()
         serializer = self.get_serializer(payment)
         return Response(serializer.data, status=201)
+	
 
 # ======================================== VNPay ========================================
 def vnpay_encode(value):
@@ -1081,11 +1145,11 @@ def vnpay_redirect(request):
                 # Tạo thông báo thanh toán thành công và enrollment
                 try:
                     Notification.objects.create(
-                        user=user,
+						course=course,
                         notification_type='course_enrollment',
                         title='Thanh toán VNPay thành công',
                         message=f'Thanh toán VNPay thành công và đã đăng ký khóa học "{course.title}". Số tiền: {payment.amount:,.0f} VNĐ'
-                    )
+                    ).send_to_user(user)
                     logger.info(f"Created VNPay success notification for course enrollment {course.id}")
                 except Exception as notification_error:
                     logger.error(f"Failed to create VNPay success notification: {notification_error}")

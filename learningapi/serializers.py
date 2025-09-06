@@ -20,6 +20,14 @@ class CourseSerializer(serializers.ModelSerializer):
         model = Course
         fields = ['id', 'title', 'description', 'image', 'instructor', 'price', 'start_date', 'end_date', 'is_active', 'is_published', 'tags', 'created_at', 'updated_at']
 
+    
+    def update(self, instance, validated_data):
+        # Giữ nguyên is_active nếu không truyền lên
+        if 'is_active' not in validated_data:
+            validated_data['is_active'] = instance.is_active
+            print("is_active not in validated_data, keeping existing value:", instance.is_active)
+        return super().update(instance, validated_data)
+    
     def validate_title(self, value):
         # Check for duplicate title only on create, not on update
         if self.instance is None:  # Creating new course

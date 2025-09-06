@@ -134,6 +134,27 @@ const DocumentViewer = () => {
     fetchDocument();
   }, [id]);
 
+  // Kiểm tra trạng thái hoàn thành tài liệu khi documentData thay đổi
+  useEffect(() => {
+    const checkCompletion = async () => {
+      if (!documentData) return;
+      try {
+        const user = await authUtils.getCurrentUser();
+        if (!user) return;
+        // Gọi API lấy DocumentCompletion cho user và document
+        const res = await api.get(endpoints.documentCompletion.list + `?user=${user.id}&document=${id}`);
+        if (Array.isArray(res.data) && res.data.length > 0) {
+          setCompletion(res.data[0]);
+        } else {
+          setCompletion(null);
+        }
+      } catch (err) {
+        setCompletion(null);
+      }
+    };
+    checkCompletion();
+  }, [documentData, id]);
+
   useEffect(() => {
     if (documentData && hasCourseAccess) {
       if (documentData.file && documentData.file.toLowerCase().endsWith('.pdf')) {
