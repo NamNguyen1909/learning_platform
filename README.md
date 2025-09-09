@@ -140,6 +140,8 @@ npm run build
 4. **Configure Environment Variables**
    Create a `.env` file in the project root:
    ```env
+   FRONTEND_URL=http://localhost:5173/
+   BACKEND_URL=http://localhost:8000/
    DATABASE_URL=mysql://user:pass@localhost:3306/learning_platform_db
    SECRET_KEY=your-django-secret-key
    DEBUG=True
@@ -147,10 +149,20 @@ npm run build
    CLOUDINARY_CLOUD_NAME=your-cloudinary-cloud-name
    CLOUDINARY_API_KEY=your-cloudinary-api-key
    CLOUDINARY_API_SECRET=your-cloudinary-api-secret
+   SUPABASE_URL=your-supabase-url
+   SUPABASE_KEY=your-supabase-key
+   SUPABASE_BUCKET=your-bucket-name
    SOCIAL_AUTH_GOOGLE_OAUTH2_KEY=your-google-key
    SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET=your-google-secret
    SOCIAL_AUTH_GITHUB_KEY=your-github-key
    SOCIAL_AUTH_GITHUB_SECRET=your-github-secret
+   VNPAY_TMN_CODE=your-vnpay-TMN-code
+   VNPAY_HASH_SECRET=your-vnpay-hash-secret
+   EMAIL_HOST=smtp.gmail.com
+   EMAIL_PORT=587
+   EMAIL_HOST_USER=your-email@gmail.com
+   EMAIL_HOST_PASSWORD=your-email-host-password
+   DEFAULT_FROM_EMAIL=your-email@gmail.com
    ```
 5. **Database Setup**
    ```bash
