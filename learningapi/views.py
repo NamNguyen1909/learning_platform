@@ -2,6 +2,8 @@ import logging
 
 from httpcore import request
 
+from learningapi.services.document_ingestion import ingest_document
+
 logger = logging.getLogger(__name__)
 from django.http import HttpResponse, JsonResponse
 from rest_framework.decorators import api_view, permission_classes
@@ -24,6 +26,10 @@ from django.utils.timezone import localtime
 from datetime import datetime
 import os,hashlib,hmac
 import uuid
+
+from rest_framework.decorators import action
+from django.shortcuts import get_object_or_404
+from .rag_service import generate_ai_answer
 
 # Health check endpoint for Render deployment
 @csrf_exempt
@@ -500,6 +506,36 @@ class CourseViewSet(viewsets.ViewSet,generics.CreateAPIView,generics.UpdateAPIVi
 		)
 		serializer = CourseSerializer(suggested, many=True)
 		return Response(serializer.data)
+	
+	@action(detail=True, methods=['post'], url_path='chat')
+	def chat(self, request, pk=None):
+		course = self.get_object()
+		serializer = ChatRequestSerializer(data=request.data)
+		serializer.is_valid(raise_exception=True)
+		question_text = serializer.validated_data['message']
+		allow_web = serializer.validated_data.get('allow_web', False)
+
+		# Tạo Question
+		question = Question.objects.create(
+			course=course,
+			asked_by=request.user if request.user.is_authenticated else None,
+			content=question_text
+		)
+
+		# Sinh câu trả lời từ AI
+		answer_text, sources = generate_ai_answer(course, question_text, allow_web=allow_web)
+
+		# Lưu Answer với is_ai=True
+		answer = Answer.objects.create(
+			question=question,
+			answered_by=None,  # AI không phải user
+			content=answer_text,
+			is_ai=True
+		)
+
+		resp_serializer = ChatResponseSerializer({'answer': answer_text, 'sources': sources})
+		return Response(resp_serializer.data)
+
 class TagViewSet(viewsets.ViewSet,generics.ListAPIView,generics.CreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
 	serializer_class = TagSerializer
 	queryset = Tag.objects.all()
@@ -660,6 +696,11 @@ class DocumentViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPI
 				file=file_name,
 				uploaded_by=request.user
 			)
+
+			# Gọi ingestion service
+			print(f"[Document] Calling ingestion service for document ID: {doc.id}")
+			ingest_document(doc)
+
 			serializer = DocumentSerializer(doc)
 			return Response({"message": "Uploaded successfully", "document": serializer.data})
 		else:

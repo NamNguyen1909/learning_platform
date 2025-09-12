@@ -7,6 +7,9 @@ from django.utils.timezone import localtime
 from django.core.validators import MinValueValidator, MaxValueValidator
 import uuid
 
+from django.contrib.postgres.indexes import GinIndex
+from pgvector.django import VectorField
+
 # User Manager
 class UserManager(BaseUserManager):
 	def create_user(self, username, email, password=None, **extra_fields):
@@ -344,3 +347,18 @@ class Note(models.Model):
 
 	def __str__(self):
 		return f"Note by {self.user} at {self.timestamp}s"
+
+
+#dùng để tìm kiếm ngữ nghĩa (cosine similarity) để phục vụ RAG.
+class Chunk(models.Model):
+	course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='chunks')
+	document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name='chunks')
+	text = models.TextField()
+	embedding = VectorField(dimensions=3072) #tạm thời tắt index để tránh lỗi khi dev, khy deploy thì bật lại tạo index thủ công CREATE INDEX ON chunk USING ivfflat (embedding vector_l2_ops) WITH (lists = 100);
+
+	meta = models.JSONField(default=dict, blank=True)
+
+	class Meta:
+		indexes = []
+		# indexes = [GinIndex(fields=["embedding"])]
+

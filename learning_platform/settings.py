@@ -184,12 +184,12 @@ if db_url:
 else:
     DATABASES = {
         'default': {
-            'ENGINE': 'django.db.backends.mysql',
+            'ENGINE': env("DB_ENGINE",default="django.db.backends.postgresql"),
             'NAME': env("DB_NAME", default="mydatabase"),
             'USER': env("DB_USER", default="myuser"),
             'PASSWORD': env("DB_PASSWORD", default="mypassword"),
             'HOST': env("DB_HOST", default="localhost"),
-            'PORT': env("DB_PORT", default="3306"),
+            'PORT': env("DB_PORT", default="5432"),
         }
     }
 
