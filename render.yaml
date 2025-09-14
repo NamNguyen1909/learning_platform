@@ -1,4 +1,9 @@
 services:
+  # Redis broker for Celery
+  - type: redis
+    name: learning-platform-redis
+    plan: free
+
   # Django Backend API
   - type: web
     name: learning-platform-api
@@ -68,9 +73,31 @@ services:
       - key: SOCIAL_AUTH_GITHUB_SECRET
         sync: false
 
+      - key: CELERY_BROKER_URL
+        fromService:
+          type: redis
+          name: learning-platform-redis
+          property: connectionString
+
     plan: free
     healthCheckPath: /health/
     autoDeploy: true
+
+    # Celery worker
+  - type: worker
+    name: learning-platform-celery
+    env: python
+    rootDir: .
+    buildCommand: pip install -r requirements.txt
+    startCommand: celery -A learning_platform worker --loglevel=INFO
+    envVars:
+      - key: CELERY_BROKER_URL
+        fromService:
+          type: redis
+          name: learning-platform-redis
+          property: connectionString
+      - key: DJANGO_SETTINGS_MODULE
+        value: learning_platform.settings
 
   # React Frontend - Node.js Web Service
   - type: web
@@ -88,3 +115,4 @@ services:
       - key: NODE_VERSION
         value: "20"
     autoDeploy: true
+    plan: free

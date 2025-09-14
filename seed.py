@@ -39,9 +39,17 @@ ROLES = ['learner', 'instructor', 'center']
 
 # Tạo user giả
 users = []
+role_counters = {'learner': 1, 'instructor': 1, 'center': 1}
 for _ in range(30):
     role = random.choice(ROLES)
-    username = fake.user_name() + str(fake.random_int(1000, 9999))
+    if role == 'instructor':
+        username = f"instructor{role_counters['instructor']}"
+        role_counters['instructor'] += 1
+    elif role == 'center':
+        username = f"center{role_counters['center']}"
+        role_counters['center'] += 1
+    else:
+        username = fake.user_name() + str(fake.random_int(1000, 9999))
     email = fake.email()
     phone = fake.numerify(text='0##########')
     full_name = fake.name()
@@ -56,6 +64,7 @@ for _ in range(30):
     )
     users.append(user)
     print(f"Created user: {username} ({role}) - {full_name}")
+
 
 # Tạo tag giả nếu chưa có
 tags = []

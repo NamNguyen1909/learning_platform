@@ -50,7 +50,8 @@ def update_chunks_on_document_update(sender, instance, created, **kwargs):
     # Nếu là update (không phải tạo mới), và file/url thay đổi thì xóa chunk cũ và ingest lại
     if not created:
         old_instance = Document.objects.get(pk=instance.pk)
-        if old_instance.file != instance.file or old_instance.url != instance.url:
+        # Chỉ ingest nếu file là string (tức là đã upload xong)
+        if (old_instance.file != instance.file or old_instance.url != instance.url) and isinstance(instance.file, str):
             Chunk.objects.filter(document=instance).delete()
             from .services.document_ingestion import ingest_document
             ingest_document(instance)

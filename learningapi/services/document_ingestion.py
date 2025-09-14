@@ -1,4 +1,4 @@
-import os
+import os,tempfile
 import fitz  # PyMuPDF cho PDF
 import docx
 import requests
@@ -10,20 +10,34 @@ from ..rag_service import get_embedding
 # --- Extractor ---
 def extract_text(doc: Document) -> str:
     """
-    Trích xuất text từ file hoặc URL của Document.
+    Trích xuất text từ file Supabase/S3 hoặc URL của Document.
     """
     text = ""
+    print(f"[Ingest] Extracting text from document {doc.id}")
 
-    # Nếu có file (Supabase/S3)
+    # Nếu có file trên Supabase/S3
     if doc.file:
-        file_path = os.path.join(settings.MEDIA_ROOT, doc.file)
-        if doc.file.lower().endswith(".pdf"):
-            text = extract_text_from_pdf(file_path)
-        elif doc.file.lower().endswith(".docx"):
-            text = extract_text_from_docx(file_path)
-        elif doc.file.lower().endswith(".txt"):
-            with open(file_path, "r", encoding="utf-8") as f:
-                text = f.read()
+        file_url = doc.get_url()
+        print(f"[Ingest] Downloading file from {file_url}")
+        response = requests.get(file_url, timeout=30)
+        if response.status_code == 200:
+            file_ext = doc.file.lower()
+            # Tạo file tạm đúng cách
+            with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(doc.file)[-1]) as tmp_file:
+                tmp_file.write(response.content)
+                temp_path = tmp_file.name
+            try:
+                if file_ext.endswith(".pdf"):
+                    text = extract_text_from_pdf(temp_path)
+                elif file_ext.endswith(".docx"):
+                    text = extract_text_from_docx(temp_path)
+                elif file_ext.endswith(".txt"):
+                    with open(temp_path, "r", encoding="utf-8") as f:
+                        text = f.read()
+            finally:
+                os.remove(temp_path)
+        else:
+            print(f"[Ingest] Failed to download file from Supabase: {response.status_code}")
     # Nếu có URL (ví dụ YouTube hoặc web link)
     elif doc.url:
         if "youtube.com" in doc.url or "youtu.be" in doc.url:
@@ -35,6 +49,7 @@ def extract_text(doc: Document) -> str:
 
 
 def extract_text_from_pdf(file_path):
+    print(f"[Ingest] Extracting text from PDF {file_path}")
     text = ""
     with fitz.open(file_path) as pdf:
         for page in pdf:
@@ -43,6 +58,7 @@ def extract_text_from_pdf(file_path):
 
 
 def extract_text_from_docx(file_path):
+    print(f"[Ingest] Extracting text from DOCX {file_path}")
     text = ""
     doc = docx.Document(file_path)
     for para in doc.paragraphs:
@@ -54,6 +70,8 @@ def extract_youtube_transcript(url: str):
     """
     Lấy transcript từ video YouTube.
     """
+
+    print(f"[Ingest] Extracting transcript from YouTube URL {url}")
     try:
         # Tách video_id từ URL
         if "youtu.be" in url:
@@ -76,6 +94,7 @@ def extract_youtube_transcript(url: str):
 
 # --- Chunking ---
 def split_into_chunks(text, chunk_size=500, overlap=50):
+    print(f"[Ingest] Splitting text into chunks (size={chunk_size}, overlap={overlap})")
     words = text.split()
     chunks = []
     i = 0

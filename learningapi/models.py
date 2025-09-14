@@ -156,7 +156,7 @@ class Document(models.Model):
 		# nếu muốn signed url
 		from learningapi.services.supabase_service import get_signed_url
 		if self.file:
-			return get_signed_url(self.file_name, expires_in=3600)
+			return get_signed_url(self.file, expires_in=3600)
 		return self.url
 
 	def __str__(self):
@@ -354,8 +354,9 @@ class Chunk(models.Model):
 	course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='chunks')
 	document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name='chunks')
 	text = models.TextField()
-	embedding = VectorField(dimensions=3072) #tạm thời tắt index để tránh lỗi khi dev, khy deploy thì bật lại tạo index thủ công CREATE INDEX ON chunk USING ivfflat (embedding vector_l2_ops) WITH (lists = 100);
-
+	# cho OpenAI ada-002
+	# embedding = VectorField(dimensions=1536) #tạm thời tắt index để tránh lỗi khi dev, khy deploy thì bật lại tạo index thủ công CREATE INDEX ON chunk USING ivfflat (embedding vector_l2_ops) WITH (lists = 100);
+	embedding = VectorField(dimensions=384) #dùng  khi dev với model của HuggingFace
 	meta = models.JSONField(default=dict, blank=True)
 
 	class Meta:

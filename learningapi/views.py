@@ -2,8 +2,6 @@ import logging
 
 from httpcore import request
 
-from learningapi.services.document_ingestion import ingest_document
-
 logger = logging.getLogger(__name__)
 from django.http import HttpResponse, JsonResponse
 from rest_framework.decorators import api_view, permission_classes
@@ -30,6 +28,8 @@ import uuid
 from rest_framework.decorators import action
 from django.shortcuts import get_object_or_404
 from .rag_service import generate_ai_answer
+
+from learningapi.tasks import ingest_document_task
 
 # Health check endpoint for Render deployment
 @csrf_exempt
@@ -411,7 +411,7 @@ class CourseViewSet(viewsets.ViewSet,generics.CreateAPIView,generics.UpdateAPIVi
 	def get_permissions(self):
 		if self.action in ['create', 'update', 'partial_update', 'destroy', 'deactivate']:
 			return [CanCURDCourse()]
-		if self.action in ['list', 'retrieve','hot_courses']:
+		if self.action in ['list', 'retrieve','hot_courses','chat']:
 			return [permissions.AllowAny()]
 		if self.action == 'my_courses':
 			return [IsInstructor()]
@@ -573,6 +573,9 @@ def generate_file_name(file_obj):
 	print(f"[Document] Original file name: {file_obj.name}, Generated unique name: {unique_name}")
 	return unique_name
 
+def run_ingest_document_async(instance):
+    ingest_document_task.delay(instance.id)
+
 class DocumentViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPIView,generics.CreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
 
 	serializer_class = DocumentSerializer
@@ -594,7 +597,11 @@ class DocumentViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPI
 		return queryset
 
 	def create(self, request, *args, **kwargs):
+		print("[Document] create called")
+
 		file_obj = request.FILES.get('file')
+		print(file_obj.name if file_obj else "No file uploaded")
+
 		# dict(request.data) có thể trả về list nếu field có nhiều giá trị
 		raw_data = dict(request.data)
 		data = {}
@@ -615,6 +622,9 @@ class DocumentViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPI
 			print(f"[Document] Serializer errors: {serializer.errors}")
 			return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 		instance = serializer.save(uploaded_by=request.user)
+		print(f"[Document] Document created with ID: {instance.id}")
+		print(f"[Document] Calling ingestion service for document ID: {instance.id}")
+		run_ingest_document_async(instance)
 		headers = self.get_success_headers(serializer.data)
 		return Response(self.get_serializer(instance).data, status=status.HTTP_201_CREATED, headers=headers)
 
@@ -644,6 +654,7 @@ class DocumentViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPI
 			return Response(serializer.errors, status=400)
 		# Chỉ save uploaded_by và file (nếu có) 1 lần duy nhất
 		serializer.save(uploaded_by=request.user)
+		run_ingest_document_async(instance)
 		return Response(serializer.data)
 	
 	def perform_create(self, serializer):
@@ -699,7 +710,7 @@ class DocumentViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPI
 
 			# Gọi ingestion service
 			print(f"[Document] Calling ingestion service for document ID: {doc.id}")
-			ingest_document(doc)
+			run_ingest_document_async(doc)
 
 			serializer = DocumentSerializer(doc)
 			return Response({"message": "Uploaded successfully", "document": serializer.data})
