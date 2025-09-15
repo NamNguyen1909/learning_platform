@@ -354,9 +354,7 @@ class Chunk(models.Model):
 	course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='chunks')
 	document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name='chunks')
 	text = models.TextField()
-	# cho OpenAI ada-002
-	# embedding = VectorField(dimensions=1536) #tạm thời tắt index để tránh lỗi khi dev, khy deploy thì bật lại tạo index thủ công CREATE INDEX ON chunk USING ivfflat (embedding vector_l2_ops) WITH (lists = 100);
-	embedding = VectorField(dimensions=384) #dùng  khi dev với model của HuggingFace
+	embedding = VectorField(dimensions=384)
 	meta = models.JSONField(default=dict, blank=True)
 
 	class Meta:

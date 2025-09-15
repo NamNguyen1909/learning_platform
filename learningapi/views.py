@@ -1,5 +1,5 @@
 import logging
-
+import threading
 from httpcore import request
 
 logger = logging.getLogger(__name__)
@@ -574,7 +574,19 @@ def generate_file_name(file_obj):
 	return unique_name
 
 def run_ingest_document_async(instance):
-    ingest_document_task.delay(instance.id)
+    try:
+        # Nếu có Celery broker, gọi task Celery
+        from learningapi.tasks import ingest_document_task
+        import os
+        broker_url = os.environ.get("CELERY_BROKER_URL", "")
+        if broker_url and broker_url.startswith("redis://"):
+            ingest_document_task.delay(instance.id)
+        else:
+            raise RuntimeError("No Celery broker configured")
+    except Exception as e:
+        # Nếu không có Celery hoặc lỗi, fallback sang thread cho dev
+        from .services.document_ingestion import ingest_document
+        threading.Thread(target=ingest_document, args=(instance,), daemon=True).start()
 
 class DocumentViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPIView,generics.CreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
 
@@ -584,7 +596,7 @@ class DocumentViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPI
 		if self.action in ['create', 'update', 'partial_update', 'destroy', 'upload']:
 			return [CanCRUDDocument()]
 		if self.action in [ 'retrieve','download']:
-			return [permissions.IsAuthenticated()]
+			return [CanViewDocument()]
 		if self.action in ['list']:
 			return [permissions.AllowAny()]
 		return [permissions.IsAuthenticated()]

@@ -76,16 +76,19 @@ def extract_youtube_transcript(url: str):
         # Tách video_id từ URL
         if "youtu.be" in url:
             video_id = url.split("/")[-1].split("?")[0]
+            print(f"[Ingest] Extracted video ID: {video_id}")
         else:
             from urllib.parse import urlparse, parse_qs
             qs = parse_qs(urlparse(url).query)
             video_id = qs.get("v", [""])[0]
+            print(f"[Ingest] Extracted video ID: {video_id}")
 
         if not video_id:
             return ""
 
-        transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['vi', 'en'])
-        text = " ".join([entry['text'] for entry in transcript if entry['text'].strip()])
+        api = YouTubeTranscriptApi()
+        transcript = api.fetch(video_id, languages=['vi', 'en'])
+        text = " ".join([entry.text for entry in transcript if entry.text.strip()])
         return text
     except Exception as e:
         print(f"[Ingest] Error fetching YouTube transcript: {e}")
@@ -93,15 +96,20 @@ def extract_youtube_transcript(url: str):
 
 
 # --- Chunking ---
-def split_into_chunks(text, chunk_size=500, overlap=50):
-    print(f"[Ingest] Splitting text into chunks (size={chunk_size}, overlap={overlap})")
-    words = text.split()
+def split_into_chunks(text, chunk_size=1200, overlap=100):
+    """
+    Chia text thành các chunk dài hơn (giảm số chunk), giảm overlap để tiết kiệm embedding.
+    chunk_size: số ký tự mỗi chunk (tăng lên để giảm số chunk)
+    overlap: số ký tự trùng giữa các chunk (giảm để tiết kiệm)
+    """
     chunks = []
-    i = 0
-    while i < len(words):
-        chunk_words = words[i:i + chunk_size]
-        chunks.append(" ".join(chunk_words))
-        i += chunk_size - overlap
+    start = 0
+    text_length = len(text)
+    while start < text_length:
+        end = min(start + chunk_size, text_length)
+        chunk = text[start:end]
+        chunks.append(chunk)
+        start += chunk_size - overlap
     return chunks
 
 

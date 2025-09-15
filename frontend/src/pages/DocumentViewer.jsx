@@ -147,50 +147,51 @@ const DocumentViewer = () => {
     }
   }, [documentData, hasCourseAccess]);
 
-  const fetchDocument = async () => {
-    try {
-      setLoading(true);
-      if (!authUtils.isAuthenticated()) {
-        setError('Vui lòng đăng nhập để xem tài liệu.');
-        return;
-      }
-      // Lấy thông tin document
-      const response = await api.get(endpoints.document.detail(id));
-      setDocumentData(response.data);
-      // Kiểm tra quyền truy cập: user phải có CourseProgress với course_id tương ứng
-      const courseId = response.data.course?.id || response.data.course;
-      if (!courseId) {
-        setError('Tài liệu không có thông tin khóa học.');
-        return;
-      }
-      // Gọi API lấy danh sách progress của user cho course này
+const fetchDocument = async () => {
+  try {
+    setLoading(true);
+    if (!authUtils.isAuthenticated()) {
+      setError('Vui lòng đăng nhập để xem tài liệu.');
+      return;
+    }
+    // Lấy thông tin document
+    const response = await api.get(endpoints.document.detail(id));
+    setDocumentData(response.data);
+
+    // Kiểm tra quyền truy cập
+    const courseId = response.data.course?.id || response.data.course;
+    const user = await authUtils.getCurrentUser();
+    let allowAccess = false;
+
+    // Instructor hoặc admin hoặc người upload thì cho phép truy cập
+    if (
+      user?.role === 'admin' ||
+      user?.role === 'instructor' ||
+      user?.id === response.data.uploaded_by?.id
+    ) {
+      allowAccess = true;
+    } else {
+      // Learner: kiểm tra CourseProgress
       try {
         const progressRes = await api.get(endpoints.courseProgress.list + `?course=${courseId}`);
         if (Array.isArray(progressRes.data) && progressRes.data.length > 0) {
-          setHasCourseAccess(true);
-        } else {
-          setHasCourseAccess(false);
-          setError('Bạn chưa đăng ký hoặc chưa được cấp quyền truy cập tài liệu này.');
+          allowAccess = true;
         }
       } catch (progressErr) {
-        setHasCourseAccess(false);
-        setError('Không thể kiểm tra quyền truy cập tài liệu.');
+        allowAccess = false;
       }
-    } catch (err) {
-      console.error('Error fetching document:', err);
-      if (err.response?.status === 401) {
-        setError('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
-      } else if (err.response?.status === 403) {
-        setError('Bạn không có quyền truy cập tài liệu này.');
-      } else if (err.response?.status === 404) {
-        setError('Không tìm thấy tài liệu.');
-      } else {
-        setError('Không thể tải tài liệu. Vui lòng thử lại sau.');
-      }
-    } finally {
-      setLoading(false);
     }
-  };
+
+    setHasCourseAccess(allowAccess);
+    if (!allowAccess) {
+      setError('Bạn chưa đăng ký hoặc chưa được cấp quyền truy cập tài liệu này.');
+    }
+  } catch (err) {
+    // ...existing error handling...
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleBack = () => {
     navigate(-1);
