@@ -1,4 +1,4 @@
-import os,tempfile
+import os,tempfile,re
 import fitz  # PyMuPDF cho PDF
 import docx
 import requests
@@ -97,19 +97,20 @@ def extract_youtube_transcript(url: str):
 
 # --- Chunking ---
 def split_into_chunks(text, chunk_size=1200, overlap=100):
-    """
-    Chia text thành các chunk dài hơn (giảm số chunk), giảm overlap để tiết kiệm embedding.
-    chunk_size: số ký tự mỗi chunk (tăng lên để giảm số chunk)
-    overlap: số ký tự trùng giữa các chunk (giảm để tiết kiệm)
-    """
-    chunks = []
-    start = 0
-    text_length = len(text)
-    while start < text_length:
-        end = min(start + chunk_size, text_length)
-        chunk = text[start:end]
-        chunks.append(chunk)
-        start += chunk_size - overlap
+    sentences = re.split(r'(?<=[.!?]) +', text)  # tách theo câu đơn giản
+    chunks, current = [], ""
+
+    for sent in sentences:
+        if len(current) + len(sent) <= chunk_size:
+            current += " " + sent
+        else:
+            chunks.append(current.strip())
+            # tạo overlap bằng cách lấy phần cuối chunk trước
+            current = current[-overlap:] + " " + sent
+
+    if current.strip():
+        chunks.append(current.strip())
+
     return chunks
 
 

@@ -574,19 +574,19 @@ def generate_file_name(file_obj):
 	return unique_name
 
 def run_ingest_document_async(instance):
-    try:
-        # Nếu có Celery broker, gọi task Celery
-        from learningapi.tasks import ingest_document_task
-        import os
-        broker_url = os.environ.get("CELERY_BROKER_URL", "")
-        if broker_url and broker_url.startswith("redis://"):
-            ingest_document_task.delay(instance.id)
-        else:
-            raise RuntimeError("No Celery broker configured")
-    except Exception as e:
-        # Nếu không có Celery hoặc lỗi, fallback sang thread cho dev
-        from .services.document_ingestion import ingest_document
-        threading.Thread(target=ingest_document, args=(instance,), daemon=True).start()
+	try:
+		# Nếu có Celery broker, gọi task Celery
+		from learningapi.tasks import ingest_document_task
+		import os
+		broker_url = os.environ.get("CELERY_BROKER_URL", "")
+		if broker_url and broker_url.startswith("redis://"):
+			ingest_document_task.delay(instance.id)
+		else:
+			raise RuntimeError("No Celery broker configured")
+	except Exception as e:
+		# Nếu không có Celery hoặc lỗi, fallback sang thread cho dev
+		from .services.document_ingestion import ingest_document
+		threading.Thread(target=ingest_document, args=(instance,), daemon=True).start()
 
 class DocumentViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPIView,generics.CreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
 
@@ -644,7 +644,7 @@ class DocumentViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPI
 		print("[Document] update called")
 		print("request.data:", request.data)
 		print("request.FILES:", request.FILES)
-		# Chuẩn hóa dữ liệu: chuyển các trường từ list sang giá trị đầu tiên
+
 		raw_data = dict(request.data)
 		data = {}
 		for k, v in raw_data.items():
@@ -652,21 +652,35 @@ class DocumentViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPI
 				data[k] = v[0]
 			else:
 				data[k] = v
-		# Nếu có file upload, xử lý upload và gán tên file vào data
+
+		instance = self.get_object()
+		old_file = instance.file
+		old_url = instance.url
+
 		uploaded_file = request.FILES.get('file')
 		if uploaded_file:
 			file_name = generate_file_name(uploaded_file)
 			saved_name = upload_file(uploaded_file, file_name)
 			print(f"[Document] Uploaded file to: {saved_name}")
 			data['file'] = saved_name
-		instance = self.get_object()
+
 		serializer = self.get_serializer(instance, data=data, partial=True)
 		if not serializer.is_valid():
 			print("[Document] Serializer errors:", serializer.errors)
 			return Response(serializer.errors, status=400)
-		# Chỉ save uploaded_by và file (nếu có) 1 lần duy nhất
-		serializer.save(uploaded_by=request.user)
-		run_ingest_document_async(instance)
+
+		updated_instance = serializer.save(uploaded_by=request.user)
+
+		# 🔑 Chỉ ingest nếu file hoặc url thay đổi
+		file_changed = (uploaded_file is not None and updated_instance.file != old_file)
+		url_changed = ('url' in data and data['url'] != old_url)
+
+		if file_changed or url_changed:
+			print(f"[Document] Content changed → re-ingest {updated_instance.id}")
+			run_ingest_document_async(updated_instance)
+		else:
+			print(f"[Document] Metadata updated only → skip ingest {updated_instance.id}")
+
 		return Response(serializer.data)
 	
 	def perform_create(self, serializer):
