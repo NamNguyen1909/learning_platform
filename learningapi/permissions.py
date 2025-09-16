@@ -38,5 +38,5 @@ class CanViewDocument(permissions.BasePermission):
             return True
         # Learner: kiểm tra CourseProgress
         if getattr(user, 'role', None) == 'learner':
-            return obj.course.courseprogress_set.filter(user=user).exists()
+            return obj.course.course_progress.filter(learner=user).exists()
         return False

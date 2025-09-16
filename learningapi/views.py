@@ -411,7 +411,7 @@ class CourseViewSet(viewsets.ViewSet,generics.CreateAPIView,generics.UpdateAPIVi
 	def get_permissions(self):
 		if self.action in ['create', 'update', 'partial_update', 'destroy', 'deactivate']:
 			return [CanCURDCourse()]
-		if self.action in ['list', 'retrieve','hot_courses','chat']:
+		if self.action in ['list', 'retrieve','hot_courses']:
 			return [permissions.AllowAny()]
 		if self.action == 'my_courses':
 			return [IsInstructor()]
@@ -507,9 +507,20 @@ class CourseViewSet(viewsets.ViewSet,generics.CreateAPIView,generics.UpdateAPIVi
 		serializer = CourseSerializer(suggested, many=True)
 		return Response(serializer.data)
 	
+	def has_course_access(self, course, user):
+		"""Check if user has access to the course: purchased or higher role"""
+		if not user.is_authenticated:
+			return False
+		if user.role in ['admin', 'center'] or course.instructor == user:
+			return True
+		# Check if user has CourseProgress (purchased/enrolled)
+		return CourseProgress.objects.filter(learner=user, course=course).exists()
+
 	@action(detail=True, methods=['post'], url_path='chat')
 	def chat(self, request, pk=None):
 		course = self.get_object()
+		if not self.has_course_access(course, request.user):
+			return Response({"detail": "You do not have access to this course."}, status=403)
 		serializer = ChatRequestSerializer(data=request.data)
 		serializer.is_valid(raise_exception=True)
 		question_text = serializer.validated_data['message']
@@ -535,6 +546,25 @@ class CourseViewSet(viewsets.ViewSet,generics.CreateAPIView,generics.UpdateAPIVi
 
 		resp_serializer = ChatResponseSerializer({'answer': answer_text, 'sources': sources})
 		return Response(resp_serializer.data)
+
+	@action(detail=True, methods=['get'], url_path='chat/history')
+	def chat_history(self, request, pk=None):
+		course = self.get_object()
+		if not self.has_course_access(course, request.user):
+			return Response({"detail": "You do not have access to this course."}, status=403)
+		# Get questions and AI answers for this user in this course
+		questions = Question.objects.filter(course=course, asked_by=request.user).prefetch_related('answers').order_by('created_at')
+		data = []
+		for q in questions:
+			ai_answers = q.answers.filter(is_ai=True)
+			if ai_answers.exists():
+				answer = ai_answers.first()
+				data.append({
+					'question': q.content,
+					'answer': answer.content,
+					'timestamp': q.created_at,
+				})
+		return Response(data)
 
 class TagViewSet(viewsets.ViewSet,generics.ListAPIView,generics.CreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
 	serializer_class = TagSerializer

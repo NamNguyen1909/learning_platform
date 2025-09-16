@@ -16,6 +16,7 @@ import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
 import { Document, Page, pdfjs } from 'react-pdf';
 import api, { endpoints } from '../services/apis';
 import authUtils from '../services/auth';
+import ChatWidget from '../components/ChatWidget';
 
 
 // Configure PDF.js worker
@@ -88,12 +89,9 @@ const DocumentViewer = () => {
   const [numPages, setNumPages] = useState(null);
   const [pageNumber, setPageNumber] = useState(1);
   const [pdfLoading, setPdfLoading] = useState(false);
-  const [hasCourseAccess, setHasCourseAccess] = useState(false);
+
   const [completion, setCompletion] = useState(null); // DocumentCompletion object
   const [completionLoading, setCompletionLoading] = useState(false);
-
-
-
 
   // Đánh dấu hoàn thành tài liệu
   const fetchCompletionStatus = async () => {
@@ -140,12 +138,12 @@ const DocumentViewer = () => {
   }, [documentData, id]);
 
   useEffect(() => {
-    if (documentData && hasCourseAccess) {
+    if (documentData) {
       if (documentData.file && documentData.file.toLowerCase().endsWith('.pdf')) {
         loadPdf();
       }
     }
-  }, [documentData, hasCourseAccess]);
+  }, [documentData]);
 
 const fetchDocument = async () => {
   try {
@@ -154,40 +152,15 @@ const fetchDocument = async () => {
       setError('Vui lòng đăng nhập để xem tài liệu.');
       return;
     }
-    // Lấy thông tin document
+    // Lấy thông tin document - backend sẽ kiểm tra quyền truy cập
     const response = await api.get(endpoints.document.detail(id));
     setDocumentData(response.data);
-
-    // Kiểm tra quyền truy cập
-    const courseId = response.data.course?.id || response.data.course;
-    const user = await authUtils.getCurrentUser();
-    let allowAccess = false;
-
-    // Instructor hoặc admin hoặc người upload thì cho phép truy cập
-    if (
-      user?.role === 'admin' ||
-      user?.role === 'instructor' ||
-      user?.id === response.data.uploaded_by?.id
-    ) {
-      allowAccess = true;
-    } else {
-      // Learner: kiểm tra CourseProgress
-      try {
-        const progressRes = await api.get(endpoints.courseProgress.list + `?course=${courseId}`);
-        if (Array.isArray(progressRes.data) && progressRes.data.length > 0) {
-          allowAccess = true;
-        }
-      } catch (progressErr) {
-        allowAccess = false;
-      }
-    }
-
-    setHasCourseAccess(allowAccess);
-    if (!allowAccess) {
-      setError('Bạn chưa đăng ký hoặc chưa được cấp quyền truy cập tài liệu này.');
-    }
   } catch (err) {
-    // ...existing error handling...
+    if (err.response?.status === 403) {
+      setError('Bạn chưa đăng ký hoặc chưa được cấp quyền truy cập tài liệu này.');
+    } else {
+      setError('Không thể tải tài liệu. Vui lòng thử lại.');
+    }
   } finally {
     setLoading(false);
   }
@@ -217,11 +190,19 @@ const fetchDocument = async () => {
       setPdfBlob(blob);
     } catch (error) {
       console.error('Error loading PDF:', error);
-      setSnackbar({
-        open: true,
-        message: 'Không thể tải PDF. Vui lòng thử lại.',
-        severity: 'error',
-      });
+      if (error.response?.status === 403) {
+        setSnackbar({
+          open: true,
+          message: 'Bạn không có quyền truy cập tài liệu này.',
+          severity: 'error',
+        });
+      } else {
+        setSnackbar({
+          open: true,
+          message: 'Không thể tải PDF. Vui lòng thử lại.',
+          severity: 'error',
+        });
+      }
     } finally {
       setPdfLoading(false);
     }
@@ -277,15 +258,7 @@ const fetchDocument = async () => {
         </IconButton>
       </Box>
       {/* Inline document rendering logic */}
-      {!documentData ? null :
-        !hasCourseAccess ? (
-          <Box sx={{ textAlign: 'center', py: 4 }}>
-            <Alert severity="error" sx={{ mb: 2 }}>
-              Bạn chưa đăng ký hoặc chưa được cấp quyền truy cập tài liệu này.
-            </Alert>
-            <Button variant="outlined" onClick={handleBack}>Quay lại</Button>
-          </Box>
-        ) : videoId ? (
+      {!documentData ? null : videoId ? (
           <Box sx={{ width: '100%', maxWidth: '800px', mx: 'auto' }}>
             <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>
               {documentData.title}
@@ -341,11 +314,19 @@ const fetchDocument = async () => {
                           window.URL.revokeObjectURL(url);
                         } catch (error) {
                           console.error('Error downloading document:', error);
-                          setSnackbar({
-                            open: true,
-                            message: 'Không thể tải tài liệu. Vui lòng thử lại.',
-                            severity: 'error',
-                          });
+                          if (error.response?.status === 403) {
+                            setSnackbar({
+                              open: true,
+                              message: 'Bạn không có quyền truy cập tài liệu này.',
+                              severity: 'error',
+                            });
+                          } else {
+                            setSnackbar({
+                              open: true,
+                              message: 'Không thể tải tài liệu. Vui lòng thử lại.',
+                              severity: 'error',
+                            });
+                          }
                         }
                       }}
                     >
@@ -456,11 +437,19 @@ const fetchDocument = async () => {
                         window.URL.revokeObjectURL(url);
                       } catch (error) {
                         console.error('Error downloading document:', error);
-                        setSnackbar({
-                          open: true,
-                          message: 'Không thể tải tài liệu. Vui lòng thử lại.',
-                          severity: 'error',
-                        });
+                        if (error.response?.status === 403) {
+                          setSnackbar({
+                            open: true,
+                            message: 'Bạn không có quyền truy cập tài liệu này.',
+                            severity: 'error',
+                          });
+                        } else {
+                          setSnackbar({
+                            open: true,
+                            message: 'Không thể tải tài liệu. Vui lòng thử lại.',
+                            severity: 'error',
+                          });
+                        }
                       }
                     }}
                   >
@@ -500,6 +489,7 @@ const fetchDocument = async () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
+      <ChatWidget courseId={documentData?.course || null} />
     </Container>
   );
 };
