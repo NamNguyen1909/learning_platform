@@ -1,4 +1,9 @@
 services:
+  # Redis broker for Celery
+  - type: redis
+    name: learning-platform-redis
+    plan: free
+
   # Django Backend API
   - type: web
     name: learning-platform-api
@@ -43,14 +48,8 @@ services:
         sync: false
       - key: VNPAY_HASH_SECRET
         sync: false
-      - key: EMAIL_HOST
-        value: smtp.gmail.com
-      - key: EMAIL_PORT
-        value: "587"
-      - key : EMAIL_HOST_USER
-        sync: false
-      - key : EMAIL_HOST_PASSWORD
-        sync: false
+      - key: BREVO_API_KEY
+        value: false
       - key: DEFAULT_FROM_EMAIL
         sync: false
       - key: TIME_ZONE
@@ -67,10 +66,38 @@ services:
         sync: false
       - key: SOCIAL_AUTH_GITHUB_SECRET
         sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: HF_TOKEN
+        sync: false
+      - key: GOOGLE_API_KEY
+        sync: false
+
+      - key: CELERY_BROKER_URL
+        fromService:
+          type: redis
+          name: learning-platform-redis
+          property: connectionString
 
     plan: free
     healthCheckPath: /health/
     autoDeploy: true
+
+    # Celery worker
+  - type: worker
+    name: learning-platform-celery
+    env: python
+    rootDir: .
+    buildCommand: pip install -r requirements.txt
+    startCommand: celery -A learning_platform worker --loglevel=INFO
+    envVars:
+      - key: CELERY_BROKER_URL
+        fromService:
+          type: redis
+          name: learning-platform-redis
+          property: connectionString
+      - key: DJANGO_SETTINGS_MODULE
+        value: learning_platform.settings
 
   # React Frontend - Node.js Web Service
   - type: web
@@ -88,3 +115,4 @@ services:
       - key: NODE_VERSION
         value: "20"
     autoDeploy: true
+    plan: free

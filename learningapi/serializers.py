@@ -148,3 +148,17 @@ class NoteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Note
         fields = ['id', 'user', 'course', 'document', 'video_id', 'timestamp', 'content', 'created_at']
+
+
+class ChunkSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Chunk
+        fields = ['id', 'course', 'document', 'text', 'meta']
+
+class ChatRequestSerializer(serializers.Serializer):
+    message = serializers.CharField()
+    allow_web = serializers.BooleanField(default=False)
+
+class ChatResponseSerializer(serializers.Serializer):
+    answer = serializers.CharField()
+    sources = serializers.ListField(child=serializers.CharField())

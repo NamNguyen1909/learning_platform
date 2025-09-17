@@ -7,6 +7,9 @@ from django.utils.timezone import localtime
 from django.core.validators import MinValueValidator, MaxValueValidator
 import uuid
 
+from django.contrib.postgres.indexes import GinIndex
+from pgvector.django import VectorField
+
 # User Manager
 class UserManager(BaseUserManager):
 	def create_user(self, username, email, password=None, **extra_fields):
@@ -153,7 +156,7 @@ class Document(models.Model):
 		# nếu muốn signed url
 		from learningapi.services.supabase_service import get_signed_url
 		if self.file:
-			return get_signed_url(self.file_name, expires_in=3600)
+			return get_signed_url(self.file, expires_in=3600)
 		return self.url
 
 	def __str__(self):
@@ -279,12 +282,16 @@ class Notification(models.Model):
 		return user_notifications
 
 	def _send_email_to_user(self, user):
-		"""Send email to user with notification details"""
-		from django.core.mail import send_mail
+		"""Send email to user with notification details using Anymail/Brevo"""
+		from django.core.mail import EmailMultiAlternatives
 		from django.conf import settings
+		print('Sending email to', user.email)
 
 		subject = self.title
-		html_message = f"""
+		from_email = settings.DEFAULT_FROM_EMAIL
+		to = [user.email]
+		text_content = self.message
+		html_content = f"""
 		<html>
 		<head>
 			<style>
@@ -312,14 +319,9 @@ class Notification(models.Model):
 		</body>
 		</html>
 		"""
-		send_mail(
-			subject,
-			self.message,  # plain text fallback
-			settings.DEFAULT_FROM_EMAIL,
-			[user.email],
-			html_message=html_message,
-			fail_silently=True
-		)
+		msg = EmailMultiAlternatives(subject, text_content, from_email, to)
+		msg.attach_alternative(html_content, "text/html")
+		msg.send()
 
 # UserNotification Model
 class UserNotification(models.Model):
@@ -344,3 +346,17 @@ class Note(models.Model):
 
 	def __str__(self):
 		return f"Note by {self.user} at {self.timestamp}s"
+
+
+#dùng để tìm kiếm ngữ nghĩa (cosine similarity) để phục vụ RAG.
+class Chunk(models.Model):
+	course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='chunks')
+	document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name='chunks')
+	text = models.TextField()
+	embedding = VectorField(dimensions=384)
+	meta = models.JSONField(default=dict, blank=True)
+
+	class Meta:
+		indexes = []
+		# indexes = [GinIndex(fields=["embedding"])]
+

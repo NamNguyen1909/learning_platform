@@ -5,6 +5,10 @@ from django.conf import settings
 
 from learningapi import models
 
+from django.db.models.signals import post_delete, post_save
+from django.dispatch import receiver
+from .models import *
+
 @receiver(post_migrate)
 def create_default_superuser_and_tags(sender, **kwargs):
     User = get_user_model()
@@ -36,3 +40,18 @@ def create_default_superuser_and_tags(sender, **kwargs):
     if Tag:
         for tag_name in default_tags:
             Tag.objects.get_or_create(name=tag_name)
+
+@receiver(post_delete, sender=Document)
+def delete_chunks_on_document_delete(sender, instance, **kwargs):
+    Chunk.objects.filter(document=instance).delete()
+
+@receiver(post_save, sender=Document)
+def update_chunks_on_document_update(sender, instance, created, **kwargs):
+    # Nếu là update (không phải tạo mới), và file/url thay đổi thì xóa chunk cũ và ingest lại
+    if not created:
+        old_instance = Document.objects.get(pk=instance.pk)
+        # Chỉ ingest nếu file là string (tức là đã upload xong)
+        if (old_instance.file != instance.file or old_instance.url != instance.url) and isinstance(instance.file, str):
+            Chunk.objects.filter(document=instance).delete()
+            from .services.document_ingestion import ingest_document
+            ingest_document(instance)

@@ -1,5 +1,5 @@
 import logging
-
+import threading
 from httpcore import request
 
 logger = logging.getLogger(__name__)
@@ -24,6 +24,12 @@ from django.utils.timezone import localtime
 from datetime import datetime
 import os,hashlib,hmac
 import uuid
+
+from rest_framework.decorators import action
+from django.shortcuts import get_object_or_404
+from .rag_service import generate_ai_answer
+
+from learningapi.tasks import ingest_document_task
 
 # Health check endpoint for Render deployment
 @csrf_exempt
@@ -500,6 +506,66 @@ class CourseViewSet(viewsets.ViewSet,generics.CreateAPIView,generics.UpdateAPIVi
 		)
 		serializer = CourseSerializer(suggested, many=True)
 		return Response(serializer.data)
+	
+	def has_course_access(self, course, user):
+		"""Check if user has access to the course: purchased or higher role"""
+		if not user.is_authenticated:
+			return False
+		if user.role in ['admin', 'center'] or course.instructor == user:
+			return True
+		# Check if user has CourseProgress (purchased/enrolled)
+		return CourseProgress.objects.filter(learner=user, course=course).exists()
+
+	@action(detail=True, methods=['post'], url_path='chat')
+	def chat(self, request, pk=None):
+		course = self.get_object()
+		if not self.has_course_access(course, request.user):
+			return Response({"detail": "You do not have access to this course."}, status=403)
+		serializer = ChatRequestSerializer(data=request.data)
+		serializer.is_valid(raise_exception=True)
+		question_text = serializer.validated_data['message']
+		allow_web = serializer.validated_data.get('allow_web', False)
+
+		# Tạo Question
+		question = Question.objects.create(
+			course=course,
+			asked_by=request.user if request.user.is_authenticated else None,
+			content=question_text
+		)
+
+		# Sinh câu trả lời từ AI
+		answer_text, sources = generate_ai_answer(course, question_text, allow_web=allow_web)
+
+		# Lưu Answer với is_ai=True
+		answer = Answer.objects.create(
+			question=question,
+			answered_by=None,  # AI không phải user
+			content=answer_text,
+			is_ai=True
+		)
+
+		resp_serializer = ChatResponseSerializer({'answer': answer_text, 'sources': sources})
+		return Response(resp_serializer.data)
+
+	@action(detail=True, methods=['get'], url_path='chat/history')
+	def chat_history(self, request, pk=None):
+		course = self.get_object()
+		if not self.has_course_access(course, request.user):
+			return Response({"detail": "You do not have access to this course."}, status=403)
+		# Get questions and AI answers for this user in this course
+		questions = Question.objects.filter(course=course, asked_by=request.user).prefetch_related('answers').order_by('created_at')
+		data = []
+		for q in questions:
+			ai_answers = q.answers.filter(is_ai=True)
+			if ai_answers.exists():
+				answer = ai_answers.first()
+				data.append({
+					'question': q.content,
+					'answer': answer.content,
+					'timestamp': q.created_at,
+				})
+		return Response(data)
+
 class TagViewSet(viewsets.ViewSet,generics.ListAPIView,generics.CreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
 	serializer_class = TagSerializer
 	queryset = Tag.objects.all()
@@ -537,6 +603,21 @@ def generate_file_name(file_obj):
 	print(f"[Document] Original file name: {file_obj.name}, Generated unique name: {unique_name}")
 	return unique_name
 
+def run_ingest_document_async(instance):
+	try:
+		# Nếu có Celery broker, gọi task Celery
+		from learningapi.tasks import ingest_document_task
+		import os
+		broker_url = os.environ.get("CELERY_BROKER_URL", "")
+		if broker_url and broker_url.startswith("redis://"):
+			ingest_document_task.delay(instance.id)
+		else:
+			raise RuntimeError("No Celery broker configured")
+	except Exception as e:
+		# Nếu không có Celery hoặc lỗi, fallback sang thread cho dev
+		from .services.document_ingestion import ingest_document
+		threading.Thread(target=ingest_document, args=(instance,), daemon=True).start()
+
 class DocumentViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPIView,generics.CreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
 
 	serializer_class = DocumentSerializer
@@ -545,7 +626,7 @@ class DocumentViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPI
 		if self.action in ['create', 'update', 'partial_update', 'destroy', 'upload']:
 			return [CanCRUDDocument()]
 		if self.action in [ 'retrieve','download']:
-			return [permissions.IsAuthenticated()]
+			return [CanViewDocument()]
 		if self.action in ['list']:
 			return [permissions.AllowAny()]
 		return [permissions.IsAuthenticated()]
@@ -558,7 +639,11 @@ class DocumentViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPI
 		return queryset
 
 	def create(self, request, *args, **kwargs):
+		print("[Document] create called")
+
 		file_obj = request.FILES.get('file')
+		print(file_obj.name if file_obj else "No file uploaded")
+
 		# dict(request.data) có thể trả về list nếu field có nhiều giá trị
 		raw_data = dict(request.data)
 		data = {}
@@ -579,6 +664,9 @@ class DocumentViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPI
 			print(f"[Document] Serializer errors: {serializer.errors}")
 			return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 		instance = serializer.save(uploaded_by=request.user)
+		print(f"[Document] Document created with ID: {instance.id}")
+		print(f"[Document] Calling ingestion service for document ID: {instance.id}")
+		run_ingest_document_async(instance)
 		headers = self.get_success_headers(serializer.data)
 		return Response(self.get_serializer(instance).data, status=status.HTTP_201_CREATED, headers=headers)
 
@@ -586,7 +674,7 @@ class DocumentViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPI
 		print("[Document] update called")
 		print("request.data:", request.data)
 		print("request.FILES:", request.FILES)
-		# Chuẩn hóa dữ liệu: chuyển các trường từ list sang giá trị đầu tiên
+
 		raw_data = dict(request.data)
 		data = {}
 		for k, v in raw_data.items():
@@ -594,20 +682,35 @@ class DocumentViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPI
 				data[k] = v[0]
 			else:
 				data[k] = v
-		# Nếu có file upload, xử lý upload và gán tên file vào data
+
+		instance = self.get_object()
+		old_file = instance.file
+		old_url = instance.url
+
 		uploaded_file = request.FILES.get('file')
 		if uploaded_file:
 			file_name = generate_file_name(uploaded_file)
 			saved_name = upload_file(uploaded_file, file_name)
 			print(f"[Document] Uploaded file to: {saved_name}")
 			data['file'] = saved_name
-		instance = self.get_object()
+
 		serializer = self.get_serializer(instance, data=data, partial=True)
 		if not serializer.is_valid():
 			print("[Document] Serializer errors:", serializer.errors)
 			return Response(serializer.errors, status=400)
-		# Chỉ save uploaded_by và file (nếu có) 1 lần duy nhất
-		serializer.save(uploaded_by=request.user)
+
+		updated_instance = serializer.save(uploaded_by=request.user)
+
+		# 🔑 Chỉ ingest nếu file hoặc url thay đổi
+		file_changed = (uploaded_file is not None and updated_instance.file != old_file)
+		url_changed = ('url' in data and data['url'] != old_url)
+
+		if file_changed or url_changed:
+			print(f"[Document] Content changed → re-ingest {updated_instance.id}")
+			run_ingest_document_async(updated_instance)
+		else:
+			print(f"[Document] Metadata updated only → skip ingest {updated_instance.id}")
+
 		return Response(serializer.data)
 	
 	def perform_create(self, serializer):
@@ -660,6 +763,11 @@ class DocumentViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPI
 				file=file_name,
 				uploaded_by=request.user
 			)
+
+			# Gọi ingestion service
+			print(f"[Document] Calling ingestion service for document ID: {doc.id}")
+			run_ingest_document_async(doc)
+
 			serializer = DocumentSerializer(doc)
 			return Response({"message": "Uploaded successfully", "document": serializer.data})
 		else:

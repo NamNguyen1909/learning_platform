@@ -124,6 +124,8 @@ export const endpoints = {
     hot: "/api/courses/hot/",
     suggested: "/api/courses/suggested/",
     myCourses:"/api/courses/my-courses/",
+    chat: (id) => `/api/courses/${id}/chat/`,
+    history: (id) => `/api/courses/${id}/chat/history/`,
   },
   payment: {
     list: "/api/payments/",

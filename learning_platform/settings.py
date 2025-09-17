@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     'oauth2_provider',
     'social_django',
     'rest_framework',
+    "anymail",  # Thêm anymail để hỗ trợ Brevo
 ]
 # REST Framework & OAuth2/JWT config
 REST_FRAMEWORK = {
@@ -184,12 +185,12 @@ if db_url:
 else:
     DATABASES = {
         'default': {
-            'ENGINE': 'django.db.backends.mysql',
+            'ENGINE': env("DB_ENGINE",default="django.db.backends.postgresql"),
             'NAME': env("DB_NAME", default="mydatabase"),
             'USER': env("DB_USER", default="myuser"),
             'PASSWORD': env("DB_PASSWORD", default="mypassword"),
             'HOST': env("DB_HOST", default="localhost"),
-            'PORT': env("DB_PORT", default="3306"),
+            'PORT': env("DB_PORT", default="5432"),
         }
     }
 
@@ -266,13 +267,19 @@ SOCIAL_AUTH_EMAIL_VALIDATION_URL = '/email-validation-sent/'
 # http://localhost:8000/auth/complete/github/
 # http://localhost:8000/auth/complete/facebook/
 
-# Email settings (SMTP)
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = env('EMAIL_HOST', default='smtp.gmail.com')
-EMAIL_PORT = env('EMAIL_PORT', default=587)
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = env('EMAIL_HOST_USER', default='your_email@gmail.com')
-EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='your_app_password')
-DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default=EMAIL_HOST_USER)
+
+# Cấu hình AnyMail với Brevo (trước đây là Sendinblue)
+EMAIL_BACKEND = "anymail.backends.brevo.EmailBackend"
+ANYMAIL = {
+    "BREVO_API_KEY": env("BREVO_API_KEY", default=""),
+}
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="no-reply@example.com")
+SERVER_EMAIL = DEFAULT_FROM_EMAIL
 
 
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
+CELERY_RESULT_BACKEND = CELERY_BROKER_URL
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'Asia/Ho_Chi_Minh'

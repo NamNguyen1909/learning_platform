@@ -23,6 +23,7 @@ import ReplyIcon from "@mui/icons-material/Reply";
 
 import api, { endpoints } from "../services/apis";
 import authUtils from "../services/auth";
+import ChatWidget from "../components/ChatWidget";
 
 // Helper: format date (đặt ngoài component để không ảnh hưởng đến hooks)
 function formatDate(dateStr) {
@@ -175,25 +176,13 @@ const CourseDetail = () => {
     // eslint-disable-next-line
   }, [id]);
 
-  // Xử lý click document: nếu chưa đăng nhập thì redirect login, nếu đã đăng nhập thì sang trang chi tiết document (sau này kiểm tra quyền ở BE)
+  // Xử lý click document: nếu chưa đăng nhập thì redirect login, nếu đã đăng nhập thì sang trang chi tiết document (quyền truy cập được kiểm tra ở BE)
   const handleDocumentClick = async (doc) => {
     if (!authUtils.isAuthenticated()) {
       navigate("/login", { state: { from: window.location.pathname } });
       return;
     }
-    // Kiểm tra lại quyền truy cập tài liệu (tái sử dụng hàm)
-    const hasProgress = hasCourseProgress ?? (await checkCourseProgress(id));
-    // Thêm điều kiện nếu user là instructor của khóa học
-    const isInstructor = currentUser && course && currentUser.id === course.instructor?.id;
-    if (!hasProgress && !isInstructor) {
-      setSnackbar({
-        open: true,
-        message: "Bạn cần đăng ký khóa học để xem tài liệu!",
-        severity: "warning",
-      });
-      return;
-    }
-    // Đã đăng ký, cho phép xem tài liệu
+    // Backend sẽ kiểm tra quyền truy cập, frontend chỉ cần navigate
     if (doc.url) {
       // If document is a YouTube link, open DocumentViewer page
       navigate(`/documents/${doc.id}`);
@@ -627,6 +616,12 @@ const CourseDetail = () => {
     </Box>
   );
 
+  // Add helper variable for chat widget access
+  const hasAccessToChat =
+    hasCourseProgress ||
+    (currentUser &&
+      ["admin", "center", "instructor"].includes(currentUser.role));
+
   return (
     <Container maxWidth="lg" sx={{ mt: 4 }}>
       <Grid
@@ -817,6 +812,8 @@ const CourseDetail = () => {
       >
         <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
       </Snackbar>
+      {/* Show ChatWidget if user has course progress or role admin/center/instructor */}
+      {hasAccessToChat && <ChatWidget courseId={id} />}
     </Container>
   );
 };
