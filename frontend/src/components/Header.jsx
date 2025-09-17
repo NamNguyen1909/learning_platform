@@ -24,7 +24,6 @@ import MenuIcon from '@mui/icons-material/Menu';
 import Dashboard from '@mui/icons-material/Dashboard';
 import Book from '@mui/icons-material/Book';
 import People from '@mui/icons-material/People';
-import Chat from '@mui/icons-material/Chat';
 import School from '@mui/icons-material/School';
 import AccountCircle from '@mui/icons-material/AccountCircle';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -45,7 +44,6 @@ const fullMenuItemsByRole = {
     { text: 'Quản lý trung tâm', icon: <School />, path: '/centers-management' },
     { text: 'Thống kê hệ thống', icon: <Dashboard />, path: '/statistics' },
     { text: 'Django Admin', icon: <AdminPanelSettings />, path: `${import.meta.env.VITE_API_URL}/admin`, external: true },
-    { text: 'AI Tutor', icon: <Chat />, path: '/ai-tutor' },
   ],
   center: [
     { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
@@ -53,19 +51,16 @@ const fullMenuItemsByRole = {
     { text: 'Quản lý giảng viên', icon: <School />, path: '/instructors-management' },
     { text: 'Quản lý học viên', icon: <People />, path: '/learners-management' },
     { text: 'Thống kê hệ thống', icon: <Dashboard />, path: '/statistics' },
-    { text: 'AI Tutor', icon: <Chat />, path: '/ai-tutor' },
   ],
   instructor: [
     { text: 'Danh sách khóa học', icon: <Book />, path: '/courses' },
     { text: 'Khóa học của tôi', icon: <Book />, path: '/my-courses' },
     { text: 'Học viên', icon: <People />, path: '/students' },
-    { text: 'AI Tutor', icon: <Chat />, path: '/ai-tutor' },
   ],
   learner: [
     { text: 'Trang chủ', icon: <School />, path: '/' },
     { text: 'Khóa học', icon: <Book />, path: '/courses' },
     { text: 'Khóa học của tôi', icon: <Book />, path: '/my-coursesprogress' },
-    { text: 'AI Tutor', icon: <Chat />, path: '/ai-tutor' },
   ],
   guest: [
     { text: 'Trang chủ', icon: <School />, path: '/' },

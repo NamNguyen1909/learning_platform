@@ -616,6 +616,12 @@ const CourseDetail = () => {
     </Box>
   );
 
+  // Add helper variable for chat widget access
+  const hasAccessToChat =
+    hasCourseProgress ||
+    (currentUser &&
+      ["admin", "center", "instructor"].includes(currentUser.role));
+
   return (
     <Container maxWidth="lg" sx={{ mt: 4 }}>
       <Grid
@@ -806,8 +812,8 @@ const CourseDetail = () => {
       >
         <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
       </Snackbar>
-      {/* Only show ChatWidget if user has purchased the course */}
-      {hasCourseProgress && <ChatWidget courseId={id} />}
+      {/* Show ChatWidget if user has course progress or role admin/center/instructor */}
+      {hasAccessToChat && <ChatWidget courseId={id} />}
     </Container>
   );
 };
