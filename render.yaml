@@ -48,14 +48,8 @@ services:
         sync: false
       - key: VNPAY_HASH_SECRET
         sync: false
-      - key: EMAIL_HOST
-        value: smtp.gmail.com
-      - key: EMAIL_PORT
-        value: "587"
-      - key : EMAIL_HOST_USER
-        sync: false
-      - key : EMAIL_HOST_PASSWORD
-        sync: false
+      - key: BREVO_API_KEY
+        value: false
       - key: DEFAULT_FROM_EMAIL
         sync: false
       - key: TIME_ZONE
@@ -71,6 +65,12 @@ services:
       - key: SOCIAL_AUTH_GITHUB_KEY
         sync: false
       - key: SOCIAL_AUTH_GITHUB_SECRET
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: HF_TOKEN
+        sync: false
+      - key: GOOGLE_API_KEY
         sync: false
 
       - key: CELERY_BROKER_URL
