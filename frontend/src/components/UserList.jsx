@@ -25,7 +25,8 @@ import {
   MenuItem,
   Select,
   InputLabel,
-  FormControl
+  FormControl,
+  Container,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import VisibilityIcon from "@mui/icons-material/Visibility";
@@ -161,245 +162,248 @@ const UserList = ({ userType }) => {
   };
 
   return (
-    <Paper sx={{ p: 2 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <TextField
-          label="Search"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          size="small"
-          sx={{ width: 250 }}
-        />
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => handleOpenModal('add')}
-        >
-          {userType === 'all' ? 'Add User' : userType === 'instructor' ? 'Add Instructor' : 'Add Learner'}
-        </Button>
-      </div>
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: 32 }}>Đang tải dữ liệu...</div>
-      ) : (
-        <div style={{ width: '100%', overflowX: 'auto' }}>
-          <TableContainer sx={{ minWidth: 650 }}>
-            <Table key={page}>
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ width: '10%' }}>Avatar</TableCell>
-                  <TableCell sx={{ width: '15%' }}>Username</TableCell>
-                  <TableCell sx={{ width: '20%' }}>Email</TableCell>
-                  {!isSmallScreen && <TableCell sx={{ width: '15%' }}>Phone</TableCell>}
-                  <TableCell sx={{ width: '10%' }}>Status</TableCell>
-                  {!isSmallScreen && <TableCell sx={{ width: '15%' }}>Created At</TableCell>}
-                  <TableCell align="right" sx={{ width: '15%' }}>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {users.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell sx={{ width: '10%' }}><Avatar src={user.avatar} alt={user.username} /></TableCell>
-                    <TableCell sx={{ width: '15%' }}>{user.username}</TableCell>
-                    <TableCell sx={{ width: '20%' }}>{user.email}</TableCell>
-                    {!isSmallScreen && <TableCell sx={{ width: '15%' }}>{user.phone}</TableCell>}
-                    <TableCell sx={{ width: '10%' }}>
-                      <Switch
-                        checked={user.is_active}
-                        onChange={() => handleToggleActive(user)}
-                        color={user.is_active ? "success" : "default"}
-                      />
-                    </TableCell>
-                    {!isSmallScreen && <TableCell sx={{ width: '15%' }}>{new Date(user.created_at).toLocaleDateString()}</TableCell>}
-                    <TableCell align="right" sx={{ width: '15%' }}>
-                      <Tooltip title="View">
-                        <IconButton color="primary" onClick={() => handleOpenModal('view', user)}>
-                          <VisibilityIcon />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Edit">
-                        <IconButton color="secondary" onClick={() => handleOpenModal('edit', user)}>
-                          <EditIcon />
-                        </IconButton>
-                      </Tooltip>
-      {/* Modal cho View, Edit, Add User */}
-      <Dialog open={modalOpen} onClose={handleCloseModal} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          {modalType === 'view' && 'Xem thông tin người dùng'}
-          {modalType === 'edit' && 'Chỉnh sửa người dùng'}
-          {modalType === 'add' && (userType === 'all' ? 'Thêm người dùng' : userType === 'instructor' ? 'Thêm giảng viên' : userType ==='learner' ? 'Thêm học viên' : 'Thêm trung tâm')}
-        </DialogTitle>
-        <DialogContent dividers>
-          {modalType === 'view' && selectedUser && (
-            <div>
-              <Avatar src={selectedUser.avatar} alt={selectedUser.username} sx={{ width: 64, height: 64, mb: 2 }} />
-              <div><b>Username:</b> {selectedUser.username}</div>
-              <div><b>Email:</b> {selectedUser.email}</div>
-              <div><b>Phone:</b> {selectedUser.phone}</div>
-              <div><b>Status:</b> {selectedUser.is_active ? 'Active' : 'Inactive'}</div>
-              <div><b>Role:</b> {selectedUser.role}</div>
-              <div><b>Created At:</b> {new Date(selectedUser.created_at).toLocaleString()}</div>
-            </div>
-          )}
-          {modalType === 'edit' && selectedUser && (
-            <form onSubmit={e => { e.preventDefault(); handleEditUser(); }}>
-              <TextField
-                margin="normal"
-                label="Username"
-                name="username"
-                value={formData.username}
-                onChange={handleFormChange}
-                fullWidth
-                required
-              />
-              <TextField
-                margin="normal"
-                label="Email"
-                name="email"
-                value={formData.email}
-                onChange={handleFormChange}
-                fullWidth
-                required
-              />
-              <TextField
-                margin="normal"
-                label="Họ và tên"
-                name="full_name"
-                value={formData.full_name}
-                onChange={handleFormChange}
-                fullWidth
-              />
-              <TextField
-                margin="normal"
-                label="Phone"
-                name="phone"
-                value={formData.phone}
-                onChange={handleFormChange}
-                fullWidth
-              />
-              <FormControl margin="normal" fullWidth>
-                <InputLabel id="role-label">Role</InputLabel>
-                <Select
-                  labelId="role-label"
-                  name="role"
-                  value={formData.role}
-                  label="Role"
-                  onChange={handleFormChange}
-                >
-                  <MenuItem value="admin">Admin</MenuItem>
-                  <MenuItem value="instructor">Instructor</MenuItem>
-                  <MenuItem value="learner">Learner</MenuItem>
-                  <MenuItem value="center">Center</MenuItem>
-                </Select>
-              </FormControl>
-            </form>
-          )}
-          {modalType === 'add' && (
-            <form onSubmit={e => { e.preventDefault(); handleAddUser(); }}>
-              <TextField
-                margin="normal"
-                label="Username"
-                name="username"
-                value={formData.username}
-                onChange={handleFormChange}
-                fullWidth
-                required
-              />
-              <TextField
-                margin="normal"
-                label="Email"
-                name="email"
-                value={formData.email}
-                onChange={handleFormChange}
-                fullWidth
-                required
-              />
-              <TextField
-                margin="normal"
-                label="Họ và tên"
-                name="full_name"
-                value={formData.full_name}
-                onChange={handleFormChange}
-                fullWidth
-              />
-              <TextField
-                margin="normal"
-                label="Phone"
-                name="phone"
-                value={formData.phone}
-                onChange={handleFormChange}
-                fullWidth
-              />
-              <FormControl margin="normal" fullWidth>
-                <InputLabel id="role-label">Role</InputLabel>
-                <Select
-                  labelId="role-label"
-                  name="role"
-                  value={formData.role}
-                  label="Role"
-                  onChange={handleFormChange}
-                >
-                  <MenuItem value="admin">Admin</MenuItem>
-                  <MenuItem value="instructor">Instructor</MenuItem>
-                  <MenuItem value="learner">Learner</MenuItem>
-                  <MenuItem value="center">Center</MenuItem>
-                </Select>
-              </FormControl>
-              <TextField
-                margin="normal"
-                label="Password"
-                name="password"
-                type="password"
-                value={formData.password}
-                onChange={handleFormChange}
-                fullWidth
-                required
-              />
-            </form>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseModal}>Đóng</Button>
-          {modalType === 'edit' && (
-            <Button onClick={handleEditUser} variant="contained" color="primary">Lưu</Button>
-          )}
-          {modalType === 'add' && (
-            <Button onClick={handleAddUser} variant="contained" color="primary">Tạo mới</Button>
-          )}
-        </DialogActions>
-      {/* Snackbar thông báo */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={3000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      >
-        <Alert severity={snackbar.severity} sx={{ width: '100%' }}>
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
-      </Dialog>
-                      <Tooltip title={user.is_active ? "Deactivate" : "Activate"}>
-                        <IconButton color={user.is_active ? "error" : "success"} onClick={() => handleToggleActive(user)}>
-                          {user.is_active ? <BlockIcon /> : <CheckCircleIcon />}
-                        </IconButton>
-                      </Tooltip>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+    <Container maxWidth="lg" sx={{ px: 3, py: 2 }}>
+      <Paper sx={{ p: 2 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <TextField
+            label="Search"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            size="small"
+            sx={{ width: 250 }}
+          />
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => handleOpenModal('add')}
+          >
+            {userType === 'all' ? 'Add User' : userType === 'instructor' ? 'Add Instructor' : 'Add Learner'}
+          </Button>
         </div>
-      )}
-      <TablePagination
-        component="div"
-        count={total}
-        page={page}
-        onPageChange={handleChangePage}
-        rowsPerPage={rowsPerPage}
-        onRowsPerPageChange={handleChangeRowsPerPage}
-      />
-    </Paper>
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: 32 }}>Đang tải dữ liệu...</div>
+        ) : (
+          <div style={{ width: '100%', overflowX: 'auto' }}>
+            <TableContainer sx={{ minWidth: 650 }}>
+              <Table key={page}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ width: '10%' }}>Avatar</TableCell>
+                    <TableCell sx={{ width: '15%' }}>Username</TableCell>
+                    <TableCell sx={{ width: '20%' }}>Email</TableCell>
+                    {!isSmallScreen && <TableCell sx={{ width: '15%' }}>Phone</TableCell>}
+                    <TableCell sx={{ width: '10%' }}>Status</TableCell>
+                    {!isSmallScreen && <TableCell sx={{ width: '10%' }}>Created At</TableCell>}
+                    <TableCell align="right" sx={{ width: '20%' }}>Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {users.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell sx={{ width: '10%' }}><Avatar src={user.avatar} alt={user.username} /></TableCell>
+                      <TableCell sx={{ width: '15%' }}>{user.username}</TableCell>
+                      <TableCell sx={{ width: '20%' }}>{user.email}</TableCell>
+                      {!isSmallScreen && <TableCell sx={{ width: '15%' }}>{user.phone}</TableCell>}
+                      <TableCell sx={{ width: '10%' }}>
+                        <Switch
+                          checked={user.is_active}
+                          onChange={() => handleToggleActive(user)}
+                          color={user.is_active ? "success" : "default"}
+                        />
+                      </TableCell>
+                      {!isSmallScreen && <TableCell sx={{ width: '15%' }}>{new Date(user.created_at).toLocaleDateString()}</TableCell>}
+                      <TableCell align="right" sx={{ width: '15%' }}>
+                        <Tooltip title="View">
+                          <IconButton color="primary" onClick={() => handleOpenModal('view', user)}>
+                            <VisibilityIcon />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Edit">
+                          <IconButton color="secondary" onClick={() => handleOpenModal('edit', user)}>
+                            <EditIcon />
+                          </IconButton>
+                        </Tooltip>
+        {/* Modal cho View, Edit, Add User */}
+        <Dialog open={modalOpen} onClose={handleCloseModal} maxWidth="sm" fullWidth>
+          <DialogTitle>
+            {modalType === 'view' && 'Xem thông tin người dùng'}
+            {modalType === 'edit' && 'Chỉnh sửa người dùng'}
+            {modalType === 'add' && (userType === 'all' ? 'Thêm người dùng' : userType === 'instructor' ? 'Thêm giảng viên' : userType ==='learner' ? 'Thêm học viên' : 'Thêm trung tâm')}
+          </DialogTitle>
+          <DialogContent dividers>
+            {modalType === 'view' && selectedUser && (
+              <div>
+                <Avatar src={selectedUser.avatar} alt={selectedUser.username} sx={{ width: 64, height: 64, mb: 2 }} />
+                <div><b>Username:</b> {selectedUser.username}</div>
+                <div><b>Email:</b> {selectedUser.email}</div>
+                <div><b>Phone:</b> {selectedUser.phone}</div>
+                <div><b>Status:</b> {selectedUser.is_active ? 'Active' : 'Inactive'}</div>
+                <div><b>Role:</b> {selectedUser.role}</div>
+                <div><b>Created At:</b> {new Date(selectedUser.created_at).toLocaleString()}</div>
+              </div>
+            )}
+            {modalType === 'edit' && selectedUser && (
+              <form onSubmit={e => { e.preventDefault(); handleEditUser(); }}>
+                <TextField
+                  margin="normal"
+                  label="Username"
+                  name="username"
+                  value={formData.username}
+                  onChange={handleFormChange}
+                  fullWidth
+                  required
+                />
+                <TextField
+                  margin="normal"
+                  label="Email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleFormChange}
+                  fullWidth
+                  required
+                />
+                <TextField
+                  margin="normal"
+                  label="Họ và tên"
+                  name="full_name"
+                  value={formData.full_name}
+                  onChange={handleFormChange}
+                  fullWidth
+                />
+                <TextField
+                  margin="normal"
+                  label="Phone"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleFormChange}
+                  fullWidth
+                />
+                <FormControl margin="normal" fullWidth>
+                  <InputLabel id="role-label">Role</InputLabel>
+                  <Select
+                    labelId="role-label"
+                    name="role"
+                    value={formData.role}
+                    label="Role"
+                    onChange={handleFormChange}
+                  >
+                    <MenuItem value="admin">Admin</MenuItem>
+                    <MenuItem value="instructor">Instructor</MenuItem>
+                    <MenuItem value="learner">Learner</MenuItem>
+                    <MenuItem value="center">Center</MenuItem>
+                  </Select>
+                </FormControl>
+              </form>
+            )}
+            {modalType === 'add' && (
+              <form onSubmit={e => { e.preventDefault(); handleAddUser(); }}>
+                <TextField
+                  margin="normal"
+                  label="Username"
+                  name="username"
+                  value={formData.username}
+                  onChange={handleFormChange}
+                  fullWidth
+                  required
+                />
+                <TextField
+                  margin="normal"
+                  label="Email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleFormChange}
+                  fullWidth
+                  required
+                />
+                <TextField
+                  margin="normal"
+                  label="Họ và tên"
+                  name="full_name"
+                  value={formData.full_name}
+                  onChange={handleFormChange}
+                  fullWidth
+                />
+                <TextField
+                  margin="normal"
+                  label="Phone"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleFormChange}
+                  fullWidth
+                />
+                <FormControl margin="normal" fullWidth>
+                  <InputLabel id="role-label">Role</InputLabel>
+                  <Select
+                    labelId="role-label"
+                    name="role"
+                    value={formData.role}
+                    label="Role"
+                    onChange={handleFormChange}
+                  >
+                    <MenuItem value="admin">Admin</MenuItem>
+                    <MenuItem value="instructor">Instructor</MenuItem>
+                    <MenuItem value="learner">Learner</MenuItem>
+                    <MenuItem value="center">Center</MenuItem>
+                  </Select>
+                </FormControl>
+                <TextField
+                  margin="normal"
+                  label="Password"
+                  name="password"
+                  type="password"
+                  value={formData.password}
+                  onChange={handleFormChange}
+                  fullWidth
+                  required
+                />
+              </form>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleCloseModal}>Đóng</Button>
+            {modalType === 'edit' && (
+              <Button onClick={handleEditUser} variant="contained" color="primary">Lưu</Button>
+            )}
+            {modalType === 'add' && (
+              <Button onClick={handleAddUser} variant="contained" color="primary">Tạo mới</Button>
+            )}
+          </DialogActions>
+        {/* Snackbar thông báo */}
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={3000}
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        >
+          <Alert severity={snackbar.severity} sx={{ width: '100%' }}>
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
+        </Dialog>
+                        <Tooltip title={user.is_active ? "Deactivate" : "Activate"}>
+                          <IconButton color={user.is_active ? "error" : "success"} onClick={() => handleToggleActive(user)}>
+                            {user.is_active ? <BlockIcon /> : <CheckCircleIcon />}
+                          </IconButton>
+                        </Tooltip>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </div>
+        )}
+        <TablePagination
+          component="div"
+          count={total}
+          page={page}
+          onPageChange={handleChangePage}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+        />
+      </Paper>
+    </Container>   
+
   );
 };
 
