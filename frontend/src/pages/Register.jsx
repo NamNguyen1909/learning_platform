@@ -182,10 +182,9 @@ const Register = () => {
         <Divider sx={{ my: 2 }}>Đã có tài khoản?</Divider>
         <Button
           variant="outlined"
-          color="secondary"
           fullWidth
           onClick={() => navigate("/login")}
-          sx={{ textTransform: "none" }}
+          sx={{ textTransform: "none", color: '#000000', backgroundColor: '#ffffff', borderColor: '#cccccc', textDecoration: 'underline' }}
         >
           Đăng nhập
         </Button>

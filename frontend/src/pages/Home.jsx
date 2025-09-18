@@ -10,21 +10,21 @@ import authUtils from "../services/auth";
 
 const Banner = () => (
   <Box sx={{
-    background: "linear-gradient(90deg, #1976d2 60%, #fff 100%)",
-    color: "#fff",
+    backgroundColor: 'primary.main',
+    color: '#ffffff',
     py: 6,
     px: 3,
     borderRadius: 3,
     mb: 4,
     textAlign: "center",
   }}>
-    <Typography variant="h3" fontWeight={700} mb={2}>
+    <Typography variant="h3" fontWeight={700} mb={2} sx={{color: '#ffffff'}}>
       Smart Learning Platform
     </Typography>
-    <Typography variant="h6" mb={2}>
+    <Typography variant="h6" mb={2} sx={{color: '#ffffff'}}>
       Nền tảng học trực tuyến hiện đại, kết nối giảng viên, trung tâm và học viên trên toàn quốc.
     </Typography>
-    <Button variant="contained" color="secondary" size="large" href="/register">
+    <Button variant="outlined" size="large" href="/register" sx={{ color: 'white', borderColor: 'white', '&:hover': { backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'white' } }}>
       Đăng ký ngay
     </Button>
   </Box>

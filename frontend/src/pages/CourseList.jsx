@@ -78,7 +78,7 @@ const CourseList = () => {
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Typography variant="h4" gutterBottom fontWeight={700} sx={{ textAlign: 'center', mb: 4, color: '#1976d2' }}>
+      <Typography variant="h4" gutterBottom fontWeight={700} sx={{ textAlign: 'center', mb: 4 }}>
         Danh sách khóa học
       </Typography>
       <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center' }}>
