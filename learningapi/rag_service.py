@@ -5,7 +5,7 @@ import numpy as np
 from pgvector.django import CosineDistance
 import os
 
-from sentence_transformers import SentenceTransformer
+
 import google.generativeai as genai
 
 # --- Embedding ---
@@ -31,6 +31,7 @@ def get_embedding(text: str) -> np.ndarray:
     Sinh embedding cho text bằng HuggingFace (dev mode).
     """
     # Dùng mô hình nhẹ, phổ biến cho dev
+    from sentence_transformers import SentenceTransformer
     model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
     emb = model.encode(text)
     return np.array(emb, dtype=np.float32)
