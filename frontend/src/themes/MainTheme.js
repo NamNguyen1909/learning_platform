@@ -82,15 +82,9 @@ const theme = createTheme({
         root: {
           borderRadius: 8,
           fontWeight: 600,
-          backgroundColor: '#000000',
-          color: '#ffffff',
           boxShadow: 'none',
           textTransform: 'none',
           transition: 'background-color 0.3s',
-          '&:hover': {
-            backgroundColor: '#333333',
-            boxShadow: 'none',
-          },
         },
         containedPrimary: {
           backgroundColor: '#000000',
@@ -108,16 +102,13 @@ const theme = createTheme({
         },
         outlined: {
           borderColor: '#cccccc',
-          color: '#000000',
           '&:hover': {
             borderColor: '#999999',
             backgroundColor: '#ffffff',
           },
         },
         text: {
-          color: '#000000',
           '&:hover': {
-            color: '#999999',
             backgroundColor: 'transparent',
           },
         },
