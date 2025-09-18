@@ -20,8 +20,8 @@ const Footer = () => {
     <Box
       component="footer"
       sx={{
-        backgroundColor: "#222",
-        color: "#fff",
+        backgroundColor: 'primary.main',
+        color: 'primary.contrastText',
         py: 4,
         px: { xs: 2, sm: 6 },
         mt: 6,
@@ -60,10 +60,10 @@ const Footer = () => {
               sx={{
                 display: "flex",
                 alignItems: "center",
-                color: "#fff",
+                color: 'primary.contrastText',
                 textDecoration: "none",
                 mr: 2,
-                "&:hover": { color: "#90caf9" },
+                "&:hover": { color: 'text.secondary' },
               }}
             >
               <GitHubIcon sx={{ mr: { sm: 0.5 } }} />
@@ -74,10 +74,10 @@ const Footer = () => {
               sx={{
                 display: "flex",
                 alignItems: "center",
-                color: "#fff",
+                color: 'primary.contrastText',
                 textDecoration: "none",
                 mr: 2,
-                "&:hover": { color: "#90caf9" },
+                "&:hover": { color: 'text.secondary' },
               }}
             >
               <EmailIcon sx={{ mr: { sm: 0.5 } }} />
@@ -90,9 +90,9 @@ const Footer = () => {
               sx={{
                 display: "flex",
                 alignItems: "center",
-                color: "#fff",
+                color: 'primary.contrastText',
                 textDecoration: "none",
-                "&:hover": { color: "#90caf9" },
+                "&:hover": { color: 'text.secondary' },
               }}
             >
               <LinkedInIcon sx={{ mr: { sm: 0.5 } }} />

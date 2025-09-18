@@ -402,7 +402,7 @@ const CourseDetail = () => {
       {replies.map((reply) => (
         <Card
           key={reply.id}
-          sx={{ mb: 1, bgcolor: "#f9f6f2", borderRadius: 2 }}
+          sx={{ mb: 1, borderRadius: 2 }}
         >
           <CardContent sx={{ pb: 1 }}>
             <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
@@ -481,10 +481,10 @@ const CourseDetail = () => {
                     sx={{ mr: 1 }}
                   />
                   {review.rating !== null && (
-                    <Typography
-                      variant="body2"
-                      sx={{ color: "#8B4513", fontWeight: 600 }}
-                    >
+              <Typography
+                variant="body2"
+                sx={{ fontWeight: 600 }}
+              >
                       {/* {review.rating} sao */}
                     </Typography>
                   )}
@@ -498,7 +498,7 @@ const CourseDetail = () => {
                     <Button
                       size="small"
                       startIcon={<ReplyIcon />}
-                      sx={{ textTransform: "none", fontSize: 14 }}
+                      sx={{ textTransform: "none", fontSize: 14 ,color: '#ffffff'}}
                       onClick={() =>
                         setShowReplyBox((b) => ({
                           ...b,
@@ -565,7 +565,7 @@ const CourseDetail = () => {
         hasCourseProgress &&
         courseProgress &&
         (courseProgress.progress >= 50 || myReview) && (
-          <Card sx={{ mt: 3, bgcolor: "#f5f5f5", borderRadius: 2 }}>
+          <Card sx={{ mt: 3, borderRadius: 2 }}>
             <CardContent>
               <Typography variant="h6" fontWeight={600} gutterBottom>
                 {myReview
@@ -636,7 +636,7 @@ const CourseDetail = () => {
             sx={{
               width: "100%",
               height: { xs: 220, md: 320 },
-              bgcolor: "#f5f5f5",
+
               borderRadius: 3,
               overflow: "hidden",
               boxShadow: 2,
@@ -687,7 +687,7 @@ const CourseDetail = () => {
               />
               <Typography
                 variant="body2"
-                sx={{ color: "#8B4513", fontWeight: 600 }}
+                sx={{ fontWeight: 600 }}
               >
                 {(
                   reviews.reduce((sum, r) => sum + (r.rating || 0), 0) /
@@ -764,7 +764,7 @@ const CourseDetail = () => {
         ) : (
           <Box sx={{ width: "100%" }}>
             <Box
-              sx={{ bgcolor: "#fafafa", borderRadius: 2, boxShadow: 1, p: 2 }}
+              sx={{ borderRadius: 2, boxShadow: 1, p: 2 }}
             >
               {documents.map((doc) => (
                 <Box
@@ -776,7 +776,7 @@ const CourseDetail = () => {
                     p: 1,
                     borderBottom: "1px solid #eee",
                     cursor: "pointer",
-                    "&:hover": { bgcolor: "#e3eafc" },
+
                   }}
                   onClick={() => handleDocumentClick(doc)}
                 >

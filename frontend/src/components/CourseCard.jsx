@@ -10,15 +10,14 @@ const CourseCard = ({ course, onClick, userRole }) => (
       height: '100%',
       borderRadius: 4,
       overflow: 'hidden',
-      boxShadow: '0 6px 24px rgba(25, 118, 210, 0.12)',
-      transition: 'transform 0.3s, box-shadow 0.3s',
-      '&:hover': { transform: 'scale(1.04)', boxShadow: '0 12px 32px rgba(25, 118, 210, 0.18)' },
-      bgcolor: '#F5F7FA',
+      boxShadow: 'none',
+      transition: 'transform 0.3s',
+      '&:hover': { transform: 'scale(1.04)' },
       cursor: 'pointer',
     }}
     onClick={onClick}
   >
-    <Box sx={{ height: 140, overflow: 'hidden', bgcolor: '#e3eafc', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <Box sx={{ height: 140, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       {course.image && course.image !== '' ? (
         <img src={course.image} alt={course.title} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '0 0 16px 16px' }} />
       ) : (
@@ -27,7 +26,7 @@ const CourseCard = ({ course, onClick, userRole }) => (
     </Box>
     <CardContent sx={{ flexGrow: 1, p: 2, display: 'flex', flexDirection: 'column', minHeight: 120 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-        <Typography variant="h6" fontWeight={700} noWrap sx={{ color: '#1976d2', flex: 1 }}>
+        <Typography variant="h6" fontWeight={700} noWrap sx={{ flex: 1 }}>
           {course.title}
         </Typography>
         {userRole === 'instructor' && (
@@ -36,7 +35,7 @@ const CourseCard = ({ course, onClick, userRole }) => (
             size="small"
             sx={{
               ml: 1,
-              bgcolor: course.is_published ? '#4caf50' : '#ff9800',
+              bgcolor: course.is_published ? 'secondary.main' : 'text.disabled',
               color: 'white',
               fontWeight: 600,
               fontSize: '0.7rem',
@@ -52,14 +51,14 @@ const CourseCard = ({ course, onClick, userRole }) => (
       <Box sx={{ flexGrow: 1 }} />
     </CardContent>
     <CardActions sx={{ justifyContent: 'space-between', alignItems: 'center', pb: 2, px: 2 }}>
-      <Typography variant="subtitle1" fontWeight={600} sx={{ color: '#388e3c', ml: 1 }}>
+      <Typography variant="subtitle1" fontWeight={600} sx={{ ml: 1 }}>
         Giá: {course.price ? course.price.toLocaleString() : 'Miễn phí'} VNĐ
       </Typography>
       <Button
         variant="contained"
         size="medium"
         onClick={onClick}
-        sx={{ bgcolor: '#1976d2', color: '#fff', fontWeight: 600, borderRadius: 2, px: 2, py: 1, boxShadow: 'none', '&:hover': { bgcolor: '#1565c0' } }}
+        sx={{ fontWeight: 600, borderRadius: 2, px: 2, py: 1 }}
       >
         Xem chi tiết
       </Button>

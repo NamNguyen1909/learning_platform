@@ -88,20 +88,18 @@ const Login = () => {
         <Divider sx={{ my: 2 }}>Hoặc</Divider>
         <Button
           variant="outlined"
-          color="secondary"
           fullWidth
           startIcon={<Google />}
-          sx={{ mb: 1, textTransform: 'none' }}
+          sx={{ mb: 1, textTransform: 'none', color: '#000000', backgroundColor: '#ffffff', borderColor: '#cccccc' }}
           onClick={() => handleSocialLogin('google-oauth2')}
         >
           Đăng nhập với Google
         </Button>
         <Button
           variant="outlined"
-          color="secondary"
           fullWidth
           startIcon={<GitHub />}
-          sx={{ textTransform: 'none' }}
+          sx={{ textTransform: 'none', color: '#000000', backgroundColor: '#ffffff', borderColor: '#cccccc' }}
           onClick={() => handleSocialLogin('github')}
         >
           Đăng nhập với GitHub
@@ -109,7 +107,7 @@ const Login = () => {
         <Box mt={2} textAlign="center">
           <Typography variant="body2">
             Chưa có tài khoản?{' '}
-            <Button variant="text" onClick={() => navigate('/register')} sx={{ p: 0, minWidth: 0 }}>
+            <Button variant="text" onClick={() => navigate('/register')} sx={{ p: 0, minWidth: 0, textDecoration: 'underline' ,backgroundColor: '#ffffff'}}>
               Đăng ký
             </Button>
           </Typography>
