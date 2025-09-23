@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   MainContainer,
   ChatContainer,
@@ -13,6 +13,8 @@ import ChatIcon from '@mui/icons-material/Chat';
 import CloseIcon from '@mui/icons-material/Close';
 import api, { endpoints } from '../services/apis';
 import authUtils from '../services/auth';
+import Linkify from 'react-linkify';
+import ReactMarkdown from 'react-markdown';
 
 const ChatWidget = ({ courseId }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -25,6 +27,7 @@ const ChatWidget = ({ courseId }) => {
     },
   ]);
   const [isTyping, setIsTyping] = useState(false);
+  const messageListRef = useRef(null);
 
   useEffect(() => {
     if (isOpen && courseId) {
@@ -58,6 +61,14 @@ const ChatWidget = ({ courseId }) => {
       fetchChatHistory();
     }
   }, [isOpen, courseId]);
+
+    useEffect(() => {
+    if (isOpen && messageListRef.current) {
+      // Scroll the message list container to bottom
+      const container = messageListRef.current;
+      container.scrollTop = container.scrollHeight;
+    }
+  }, [messages, isOpen]);
 
   const handleSend = async (message) => {
     if (!message.trim()) return;
@@ -179,15 +190,26 @@ const ChatWidget = ({ courseId }) => {
           <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
             <MainContainer style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
               <ChatContainer style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-                <MessageList
-                  style={{ flex: 1, minHeight: 0 }}
-                  scrollBehavior="smooth"
-                  autoScrollToBottom
-                  autoScrollToBottomOnMount
-                  typingIndicator={isTyping ? <TypingIndicator content="AI đang trả lời..." /> : null}
-                >
+              <MessageList
+                ref={messageListRef}
+                style={{ flex: 1, minHeight: 0 }}
+                scrollBehavior="smooth"
+                autoScrollToBottom
+                autoScrollToBottomOnMount
+                typingIndicator={isTyping ? <TypingIndicator content="AI đang trả lời..." /> : null}
+              >
                   {messages.map((msg, index) => (
-                    <Message key={index} model={msg} />
+                  <Message key={index} model={msg}>
+                    <ReactMarkdown
+                      components={{
+                        a: ({ node, ...props }) => (
+                          <a {...props} target="_blank" rel="noopener noreferrer" />
+                        ),
+                      }}
+                    >
+                      {msg.message}
+                    </ReactMarkdown>
+                  </Message>
                   ))}
                 </MessageList>
                 <MessageInput

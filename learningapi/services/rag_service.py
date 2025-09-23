@@ -1,5 +1,5 @@
 from django.db.models import F
-from .models import Chunk
+from ..models import Chunk
 from openai import OpenAI
 import numpy as np
 from pgvector.django import CosineDistance
@@ -52,18 +52,13 @@ def get_embedding(text: str) -> np.ndarray:
 #     return np.array(emb, dtype=np.float32)
 
 # --- RAG main ---
-def generate_ai_answer(course, question: str, allow_web: bool = False):
+def generate_ai_answer(course, question: str, allow_web: bool = False, history=None):
     """
     Sinh câu trả lời từ AI Tutor cho 1 course cụ thể.
-    - course: đối tượng Course
-    - question: câu hỏi của user
-    - allow_web: nếu True thì có thể gọi thêm công cụ search (chưa triển khai ở đây)
+    - history: list các dict {"question": ..., "answer": ...}
+    - always trích nguồn: nếu từ document thì ghi title, nếu từ internet thì ghi link
     """
-    # 1. Lấy embedding câu hỏi
     q_emb = get_embedding(question)
-
-    # 2. Truy vấn các chunk gần nhất trong DB bằng cosine similarity
-    # Dùng annotation với pgvector.cosine_distance
     chunks = (
         Chunk.objects
         .filter(course=course)
@@ -71,16 +66,25 @@ def generate_ai_answer(course, question: str, allow_web: bool = False):
         .order_by("distance")[:10]
     )
 
+    # 1. Chuẩn bị context và nguồn
     if not chunks.exists():
         context = "Không tìm thấy tài liệu nào liên quan trong khoá học."
+        sources = []
     else:
         context = "\n\n".join(c.text for c in chunks)
+        sources = [c.document.title for c in chunks]
 
-    # 3. Tạo prompt
+    # 2. Lịch sử hội thoại
+    history_prompt = ""
+    if history:
+        for turn in history:
+            history_prompt += f"\nHọc viên: {turn['question']}\nAI: {turn['answer']}\n"
+
+    # 3. Prompt cho AI: luôn yêu cầu trích nguồn
     prompt = f"""
 Bạn là AI tutor cho khóa học "{course.title}".
-Dựa trên tài liệu sau, hãy trả lời một cách rõ ràng, súc tích:
-
+Lịch sử hội thoại trước đó:
+{history_prompt}
 ---
 {context}
 ---
@@ -88,8 +92,11 @@ Dựa trên tài liệu sau, hãy trả lời một cách rõ ràng, súc tích:
 Câu hỏi của học viên: {question}
 
 Yêu cầu:
-- Nếu tài liệu không có thông tin, hãy nói "Tài liệu chưa đề cập, bạn có muốn tôi tra cứu thêm không?".
-- Trả lời bằng tiếng Việt, văn phong thân thiện, dễ hiểu.
+- Chỉ trả lời dựa trên tài liệu của khoá học nếu có thông tin liên quan.
+- Nếu trả lời dựa trên tài liệu, hãy ghi rõ nguồn bằng tiêu đề tài liệu (VD: "Nguồn: {', '.join(sources) if sources else '[không có]'}").
+- Nếu tài liệu không có thông tin, hãy nói rõ "Tài liệu chưa đề cập, tôi sẽ tìm trên internet cho bạn." và tự động tìm kiếm trên internet, trả lời ngắn gọn, dễ hiểu, kèm đường link nguồn tham khảo.
+- Luôn trả lời bằng tiếng Việt, văn phong thân thiện, dễ hiểu.
+- Luôn ghi rõ nguồn tham khảo cuối câu trả lời.
     """
 
     # 4. Gọi GPT
@@ -122,8 +129,27 @@ Yêu cầu:
     genai.configure(api_key=os.environ.get("GOOGLE_API_KEY"))
     model = genai.GenerativeModel("gemini-2.5-flash")
     response = model.generate_content(prompt)
-    answer = response.text
+    answer = response.text.strip()
 
-    # 5. Trả về answer + nguồn
-    sources = [c.document.title for c in chunks]
+    # 4. Nếu AI trả lời là "Tài liệu chưa đề cập..." thì tìm trên internet
+    if "Tài liệu chưa đề cập" in answer or "không có thông tin" in answer or not chunks.exists():
+        # Prompt lại cho AI tìm trên internet, yêu cầu trả lời kèm link nguồn
+        web_prompt = f"""
+Bạn là AI tutor cho khóa học "{course.title}".
+Câu hỏi của học viên: {question}
+
+Yêu cầu:
+- Tìm kiếm thông tin trên internet để trả lời câu hỏi trên.
+- Trả lời ngắn gọn, dễ hiểu, bằng tiếng Việt.
+- Luôn ghi rõ nguồn tham khảo (đường link) cuối câu trả lời
+- Khi ghi nguồn tham khảo, hãy để đường link đầy đủ. Ví dụ: "Nguồn: https://example.com"
+"""
+        web_response = model.generate_content(web_prompt)
+        answer = web_response.text.strip()
+        # Trích xuất link nguồn từ câu trả lời (nếu có)
+        import re
+        links = re.findall(r'(https?://[^\s]+)', answer)
+        sources = links if links else ["Internet"]
+    print("Sources:", sources)
+    print("Answer:", answer)
     return answer, sources

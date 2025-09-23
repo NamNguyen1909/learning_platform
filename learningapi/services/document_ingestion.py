@@ -5,7 +5,7 @@ import requests
 from django.conf import settings
 from youtube_transcript_api import YouTubeTranscriptApi
 from ..models import Chunk, Document
-from ..rag_service import get_embedding
+from .rag_service import get_embedding
 
 # --- Extractor ---
 def extract_text(doc: Document) -> str:

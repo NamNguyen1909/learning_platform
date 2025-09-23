@@ -104,7 +104,7 @@ class AnswerSerializer(serializers.ModelSerializer):
     parent = serializers.PrimaryKeyRelatedField(read_only=True)
     class Meta:
         model = Answer
-        fields = ['id', 'question', 'answered_by', 'content', 'is_ai', 'parent', 'created_at']
+        fields = ['id', 'question', 'answered_by', 'content', 'is_ai', 'created_at']
 
 class PaymentSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
@@ -141,13 +141,6 @@ class UserNotificationSerializer(serializers.ModelSerializer):
         model = UserNotification
         fields = ['id', 'user', 'notification', 'is_read', 'read_at', 'created_at']
 
-class NoteSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)
-    course = CourseSerializer(read_only=True)
-    document = DocumentSerializer(read_only=True)
-    class Meta:
-        model = Note
-        fields = ['id', 'user', 'course', 'document', 'video_id', 'timestamp', 'content', 'created_at']
 
 
 class ChunkSerializer(serializers.ModelSerializer):

@@ -13,10 +13,8 @@ from datetime import timedelta
 
 # Xóa dữ liệu từng bảng theo thứ tự phụ thuộc khóa ngoại
 print('Deleting all data in tables...')
-from learningapi.models import Note, UserNotification, Notification, Review, Payment, Answer, Question, DocumentCompletion, Document, CourseProgress, Course, Tag, User
-
+from learningapi.models import *
 # Thứ tự xóa: Note, UserNotification, Notification, Review, Payment, Answer, Question, DocumentCompletion, Document, CourseProgress, Course, Tag, User
-Note.objects.all().delete()
 UserNotification.objects.all().delete()
 Notification.objects.all().delete()
 Review.objects.all().delete()
@@ -27,7 +25,7 @@ DocumentCompletion.objects.all().delete()
 Document.objects.all().delete()
 CourseProgress.objects.all().delete()
 Course.objects.all().delete()
-Tag.objects.all().delete()
+# Tag.objects.all().delete()
 User.objects.exclude(is_superuser=True).delete()  # Giữ lại superuser nếu có
 
 print('All data deleted.')
@@ -68,20 +66,21 @@ for _ in range(30):
 
 # Tạo tag giả nếu chưa có
 tags = []
-for _ in range(10):
-    tag_name = fake.word().capitalize()
+tag_names = ["Programming", "Web Development", "Data Science", "Machine Learning", "Mobile Development", "Database", "DevOps", "Testing", "Security", "Design"]
+for tag_name in tag_names:
     tag, _ = Tag.objects.get_or_create(name=tag_name)
     tags.append(tag)
 
 # Tạo course giả
 instructors = User.objects.filter(role='instructor')
 courses = []
+course_counter = 1
 for _ in range(15):
     if not instructors:
         break
     instructor = random.choice(instructors)
-    title = fake.sentence(nb_words=4)
-    description = fake.paragraph(nb_sentences=5)
+    title = f"Course Example {course_counter}"
+    description = f"This is a sample course description for {title}. This course covers fundamental concepts and practical applications in the subject area. Students will learn through hands-on exercises and real-world examples."
     course = Course.objects.create(
         title=title,
         description=description,
@@ -92,6 +91,7 @@ for _ in range(15):
     )
     course.tags.set(random.sample(tags, k=min(2, len(tags))))
     courses.append(course)
+    course_counter += 1
     print(f"Created course: {title}")
 
 # Tạo CourseProgress
@@ -110,13 +110,15 @@ for learner in learners:
 
 
 # Tạo Document
+document_counter = 1
 for course in courses:
     for _ in range(random.randint(1, 3)):
         Document.objects.create(
             course=course,
-            title=fake.sentence(nb_words=3),
+            title=f"Document Example {document_counter}",
             uploaded_by=random.choice(users),
         )
+        document_counter += 1
 
     # Tạo DocumentCompletion cho mỗi learner với các document của các khoá học đã đăng ký (ensure unique user/document pairs)
     for learner in learners:
@@ -138,23 +140,23 @@ for course in courses:
                 }
             )
 
-# Tạo Question & Answer
-for course in courses:
-    for _ in range(random.randint(2, 5)):
-        asked_by = random.choice(list(users))
-        question = Question.objects.create(
-            course=course,
-            asked_by=asked_by,
-            content=fake.sentence(nb_words=10)
-        )
-        # Tạo 1-2 câu trả lời cho mỗi câu hỏi
-        for _ in range(random.randint(1, 2)):
-            Answer.objects.create(
-                question=question,
-                answered_by=random.choice(list(users)),
-                content=fake.sentence(nb_words=15),
-                is_ai=random.choice([True, False])
-            )
+# # Tạo Question & Answer
+# for course in courses:
+#     for _ in range(random.randint(2, 5)):
+#         asked_by = random.choice(list(users))
+#         question = Question.objects.create(
+#             course=course,
+#             asked_by=asked_by,
+#             content=fake.sentence(nb_words=10)
+#         )
+#         # Tạo 1-2 câu trả lời cho mỗi câu hỏi
+#         for _ in range(random.randint(1, 2)):
+#             Answer.objects.create(
+#                 question=question,
+#                 answered_by=random.choice(list(users)),
+#                 content=fake.sentence(nb_words=15),
+#                 is_ai=random.choice([True, False])
+#             )
 
 # Tạo Payment
 for learner in learners:
@@ -170,6 +172,7 @@ for learner in learners:
 
 
 # Tạo Review và reply review
+review_counter = 1
 for course in courses:
     review_objs = []
     for _ in range(random.randint(14, 26)):
@@ -178,9 +181,10 @@ for course in courses:
             course=course,
             user=user,
             rating=random.randint(1, 5),
-            comment=fake.sentence(nb_words=12)
+            comment=f"Review Example {review_counter} - This is a sample review comment for this course."
         )
         review_objs.append(review)
+        review_counter += 1
         # Tạo reply review cho một số review gốc
         if random.random() < 0.5:  # 50% review có reply
             reply_user = random.choice(list(users))
@@ -188,21 +192,24 @@ for course in courses:
                 course=course,
                 user=reply_user,
                 rating=None,
-                comment=fake.sentence(nb_words=10),
+                comment=f"Reply Example {review_counter} - This is a sample reply to the review.",
                 parent_review=review
             )
+            review_counter += 1
 
 # Tạo Notification
 notifications = []
+notification_counter = 1
 for course in courses:
     for _ in range(random.randint(20, 25)):
         notification = Notification.objects.create(
             course=course,
             notification_type=random.choice(['payment_success','warning','reminder', 'update']),
-            title=fake.sentence(nb_words=5),
-            message=fake.paragraph(nb_sentences=2)
+            title=f"Notification Example {notification_counter}",
+            message=f"This is a sample notification message for {course.title}. Notification Example {notification_counter} provides important information about the course updates and announcements."
         )
         notifications.append(notification)
+        notification_counter += 1
 
 # Tạo UserNotification
 for user in users:
@@ -215,17 +222,6 @@ for user in users:
             read_at=localtime(timezone.now()) if is_read else None
         )
 
-# Tạo Note
-documents = list(Document.objects.all())
-for learner in learners:
-    for _ in range(2):
-        Note.objects.create(
-            user=learner,
-            course=random.choice(courses),
-            document=random.choice(documents) if documents else None,
-            video_id=fake.uuid4(),
-            timestamp=random.uniform(0, 300),
-            content=fake.sentence(nb_words=10)
-        )
+
 
 print("Seeding done for all tables!")

@@ -125,16 +125,7 @@ class UserNotificationAdmin(admin.ModelAdmin):
 	list_filter = ['is_read', 'created_at']
 	list_per_page = 20
 
-# Note Admin
-class NoteAdmin(admin.ModelAdmin):
-	list_display = ['id', 'user', 'course', 'document', 'video_id', 'timestamp', 'content_preview', 'created_at']
-	search_fields = ['user__username', 'course__title', 'document__title', 'content']
-	list_filter = ['course', 'document', 'created_at']
-	list_per_page = 20
 
-	def content_preview(self, obj):
-		return obj.content[:50] + ('...' if len(obj.content) > 50 else '')
-	content_preview.short_description = "Nội dung"
 
 admin.site.register(User, UserAdmin)
 admin.site.register(Tag, TagAdmin)
@@ -148,4 +139,3 @@ admin.site.register(Payment, PaymentAdmin)
 admin.site.register(Review, ReviewAdmin)
 admin.site.register(Notification, NotificationAdmin)
 admin.site.register(UserNotification, UserNotificationAdmin)
-admin.site.register(Note, NoteAdmin)

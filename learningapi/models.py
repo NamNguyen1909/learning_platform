@@ -202,7 +202,6 @@ class Answer(models.Model):
 	answered_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='answers')
 	content = models.TextField()
 	is_ai = models.BooleanField(default=False)
-	parent = models.ForeignKey('self', null=True, blank=True, on_delete=models.CASCADE, related_name='replies')
 	created_at = models.DateTimeField(auto_now_add=True)
 
 	def __str__(self):
@@ -334,18 +333,6 @@ class UserNotification(models.Model):
 	class Meta:
 		unique_together = ('user', 'notification')
 
-# Note Model
-class Note(models.Model):
-	user = models.ForeignKey('User', on_delete=models.CASCADE, related_name='notes')
-	course = models.ForeignKey('Course', on_delete=models.SET_NULL, related_name='notes',null=True, blank=True)
-	document = models.ForeignKey('Document', on_delete=models.SET_NULL, related_name='notes', null=True, blank=True)
-	video_id = models.CharField(max_length=100)  # id video YouTube
-	timestamp = models.FloatField()  # thời gian (giây)
-	content = models.TextField()
-	created_at = models.DateTimeField(auto_now_add=True)
-
-	def __str__(self):
-		return f"Note by {self.user} at {self.timestamp}s"
 
 
 #dùng để tìm kiếm ngữ nghĩa (cosine similarity) để phục vụ RAG.
