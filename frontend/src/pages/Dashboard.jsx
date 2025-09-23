@@ -17,7 +17,6 @@ const adminMenuItems = [
   { text: 'Quản lý học viên', icon: <People />, path: '/learners-management' },
   { text: 'Quản lý trung tâm', icon: <School />, path: '/centers-management' },
   { text: 'Thống kê hệ thống', icon: <DashboardIcon />, path: '/statistics' },
-  { text: 'AI Tutor', icon: <Chat />, path: '/ai-tutor' },
   { text: 'Django Admin', icon: <AdminPanelSettings />, path: `${import.meta.env.VITE_API_URL}/admin`, external: true },
 ];
 
@@ -26,7 +25,6 @@ const centerMenuItems = [
   { text: 'Quản lý giảng viên', icon: <School />, path: '/instructors-management' },
   { text: 'Quản lý học viên', icon: <People />, path: '/learners-management' },
   { text: 'Thống kê hệ thống', icon: <DashboardIcon />, path: '/statistics' },
-  { text: 'AI Tutor', icon: <Chat />, path: '/ai-tutor' },
 ];
 
 const Dashboard = () => {

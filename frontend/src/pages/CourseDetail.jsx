@@ -498,7 +498,7 @@ const CourseDetail = () => {
                     <Button
                       size="small"
                       startIcon={<ReplyIcon />}
-                      sx={{ textTransform: "none", fontSize: 14 ,color: '#ffffff'}}
+                      sx={{ textTransform: "none", fontSize: 14 ,color: '#000000'}}
                       onClick={() =>
                         setShowReplyBox((b) => ({
                           ...b,

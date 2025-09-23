@@ -22,24 +22,86 @@ def create_default_superuser_and_tags(sender, **kwargs):
 
     # Tạo các tag mặc định nếu chưa có
     default_tags = [
+        # Thời lượng
         "Short-term (<5h)",
         "Medium-term (5–20h)",
         "Long-term (>20h)",
+
+        # Trình độ
         "Beginner",
         "Intermediate",
         "Advanced",
         "Expert",
+
+        # Chứng chỉ
         "Student",
         "Certified",
         "Non-certified",
+
+        # Ngôn ngữ
         "Vietnamese",
         "English",
+
+        # Công nghệ thông tin (IT)
+        "Information Technology",
+        "Programming",
+        "Web Development",
+        "Mobile Development",
+        "Cloud Computing",
+        "DevOps",
+        "Database",
+        "Software Engineering",
+
+        # AI & Dữ liệu
+        "Artificial Intelligence",
+        "Machine Learning",
+        "Deep Learning",
+        "Data Science",
+        "Big Data",
+        "Data Analytics",
+        "Data Engineering",
+
+        # An ninh mạng
+        "Cybersecurity",
+        "Network Security",
+        "Ethical Hacking",
+        "Blockchain",
+        "Cryptography",
+
+        # Design
+        "Graphic Design",
+        "UI/UX Design",
+        "Product Design",
+        "3D Design",
+        "Animation",
+        "Video Editing",
+
+        # Kinh doanh & Quản lý
+        "Business",
+        "Entrepreneurship",
+        "Project Management",
+        "Digital Marketing",
+        "Finance",
+        "E-commerce",
+
+        # Kỹ năng mềm
+        "Communication",
+        "Leadership",
+        "Critical Thinking",
+        "Time Management",
+        "Teamwork",
+
+        # Ngôn ngữ khác
+        "Japanese",
+        "Korean",
+        "Chinese",
+        "French",
+        "German",
     ]
-    # Giả sử model Tag có trường 'name'
-    Tag = getattr(models, "Tag", None)
-    if Tag:
-        for tag_name in default_tags:
-            Tag.objects.get_or_create(name=tag_name)
+    # Luôn tạo các tag mặc định nếu chưa có
+    from learningapi.models import Tag
+    for tag_name in default_tags:
+        Tag.objects.get_or_create(name=tag_name)
 
 @receiver(post_delete, sender=Document)
 def delete_chunks_on_document_delete(sender, instance, **kwargs):

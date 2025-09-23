@@ -27,7 +27,7 @@ import uuid
 
 from rest_framework.decorators import action
 from django.shortcuts import get_object_or_404
-from .rag_service import generate_ai_answer
+from .services.rag_service import generate_ai_answer
 
 from learningapi.tasks import ingest_document_task
 
@@ -526,20 +526,28 @@ class CourseViewSet(viewsets.ViewSet,generics.CreateAPIView,generics.UpdateAPIVi
 		question_text = serializer.validated_data['message']
 		allow_web = serializer.validated_data.get('allow_web', False)
 
-		# Tạo Question
+		# Lấy lịch sử hội thoại trước đó (ví dụ: 5 câu gần nhất)
+		questions = Question.objects.filter(
+			course=course, asked_by=request.user
+		).order_by('-created_at')[:5]
+		history = []
+		for q in reversed(questions):
+			ai_answer = q.answers.filter(is_ai=True).first()
+			if ai_answer:
+				history.append({"question": q.content, "answer": ai_answer.content})
+
+		# Truyền history vào hàm generate_ai_answer
+		answer_text, sources = generate_ai_answer(course, question_text, allow_web=allow_web, history=history)
+
+		# Lưu Question và Answer như cũ
 		question = Question.objects.create(
 			course=course,
 			asked_by=request.user if request.user.is_authenticated else None,
 			content=question_text
 		)
-
-		# Sinh câu trả lời từ AI
-		answer_text, sources = generate_ai_answer(course, question_text, allow_web=allow_web)
-
-		# Lưu Answer với is_ai=True
-		answer = Answer.objects.create(
+		Answer.objects.create(
 			question=question,
-			answered_by=None,  # AI không phải user
+			answered_by=None,
 			content=answer_text,
 			is_ai=True
 		)
@@ -884,13 +892,6 @@ class DocumentCompletionViewSet(viewsets.ViewSet,generics.ListAPIView,generics.R
 		completion.mark_complete()
 		return Response(self.serializer_class(completion).data)
 
-class QuestionViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPIView,generics.CreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
-	serializer_class = QuestionSerializer
-	queryset = Question.objects.all()
-
-class AnswerViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPIView,generics.CreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
-	serializer_class = AnswerSerializer
-	queryset = Answer.objects.all()
 
 class ReviewViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPIView,generics.CreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
 	def perform_create(self, serializer):
