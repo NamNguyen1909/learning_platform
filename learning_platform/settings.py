@@ -11,13 +11,16 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
-import environ,os
+import environ
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Initialise environment variables
-env = environ.Env()
+env = environ.Env(
+    DEBUG=(bool, False),
+    ALLOWED_HOSTS=(list, ["*"]),
+)
 environ.Env.read_env(env_file=BASE_DIR / ".env")
 
 # Cloudinary settings
@@ -42,9 +45,9 @@ SECRET_KEY = env("SECRET_KEY")
 AUTH_USER_MODEL = 'learningapi.User'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env("DEBUG", default="False") == "True"
+DEBUG = env("DEBUG")
 
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 
 
 # Application definition
@@ -106,7 +109,7 @@ SOCIAL_AUTH_FACEBOOK_KEY = env('SOCIAL_AUTH_FACEBOOK_KEY', default='')
 SOCIAL_AUTH_FACEBOOK_SECRET = env('SOCIAL_AUTH_FACEBOOK_SECRET', default='')
 
 LOGIN_URL = '/login/'
-LOGIN_REDIRECT_URL = 'http://localhost:5173/' # Redirect về frontend 
+LOGIN_REDIRECT_URL = env('FRONTEND_URL', default='http://localhost:5173/')  # Redirect về frontend 
 ## CORS settings
 CORS_ALLOW_ALL_ORIGINS = True  # Cho phép tất cả các domain, có thể thay bằng CORS_ALLOWED_ORIGINS = ['http://localhost:5173'] nếu chỉ cho phép frontend
 
@@ -159,33 +162,14 @@ WSGI_APPLICATION = 'learning_platform.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-# Database
-# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-
-# Database
-# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-import dj_database_url
-
-db_url = env("DATABASE_URL", default=None)
-if db_url:
-    if db_url.startswith("postgres://") or db_url.startswith("postgresql://"):
-        db_engine = "django.db.backends.postgresql"
-    elif db_url.startswith("mysql://"):
-        db_engine = "django.db.backends.mysql"
-    else:
-        raise ValueError("Unsupported database engine in DATABASE_URL")
-
+if env("DATABASE_URL", default=None):
     DATABASES = {
-        'default': dj_database_url.config(
-            default=db_url,
-            conn_max_age=600,
-            engine=db_engine
-        )
+        'default': env.db("DATABASE_URL", conn_max_age=600)
     }
 else:
     DATABASES = {
         'default': {
-            'ENGINE': env("DB_ENGINE",default="django.db.backends.postgresql"),
+            'ENGINE': env("DB_ENGINE", default="django.db.backends.postgresql"),
             'NAME': env("DB_NAME", default="mydatabase"),
             'USER': env("DB_USER", default="myuser"),
             'PASSWORD': env("DB_PASSWORD", default="mypassword"),
@@ -277,7 +261,7 @@ DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="no-reply@example.com")
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 
 
-CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
+CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="redis://localhost:6379/0")
 CELERY_RESULT_BACKEND = CELERY_BROKER_URL
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'

@@ -1138,175 +1138,139 @@ class PaymentViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.ListAPIV
 	
 
 # ======================================== VNPay ========================================
-def vnpay_encode(value):
-	# Encode giống VNPay: dùng quote_plus để chuyển space thành '+'
-	from urllib.parse import quote_plus
-	return quote_plus(str(value), safe='')
-
 @csrf_exempt
 def create_payment_url(request):
-	import pytz
-	tz = pytz.timezone("Asia/Ho_Chi_Minh")
-
-	vnp_TmnCode = os.environ.get('VNPAY_TMN_CODE')
-	vnp_HashSecret = os.environ.get('VNPAY_HASH_SECRET')
-
-	if not vnp_TmnCode or not vnp_HashSecret:
-		return JsonResponse({'error': 'VNPay configuration missing. Please set VNPAY_TMN_CODE and VNPAY_HASH_SECRET environment variables.'}, status=500)
-
-	vnp_Url = 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html'
-	# Sử dụng environment variable cho backend URL
-	backend_base_url = os.environ.get('BACKEND_URL', 'http://127.0.0.1:8000').rstrip('/')
-	vnp_ReturnUrl = f'{backend_base_url}/api/vnpay/redirect/'
-
-	#Nhận các thông tin đơn hàng từ request
-	amount = request.GET.get("amount", "10000")  # đơn vị VND
-	payment_id = request.GET.get("payment_id")
-	txn_ref = request.GET.get("txn_ref")
-	order_type = "other"
-
-	# Nếu có payment_id, lấy txn_ref từ payment.transaction_id
-	if payment_id:
-		try:
-			payment = Payment.objects.get(id=payment_id)
-			txn_ref = payment.transaction_id
-		except Payment.DoesNotExist:
-			return JsonResponse({'error': 'Payment not found'}, status=400)
-
-	#Tạo mã giao dịch và ngày giờ
-	if txn_ref:
-		order_id = txn_ref
-	else:
-		order_id = datetime.now(tz).strftime('%H%M%S')
-	create_date = datetime.now(tz).strftime('%Y%m%d%H%M%S')
-	ip_address = request.META.get('REMOTE_ADDR')
-
-	#Tạo dữ liệu gửi lên VNPay
-	input_data = {
-		"vnp_Version": "2.1.0",
-		"vnp_Command": "pay",
-		"vnp_TmnCode": vnp_TmnCode,
-		"vnp_Amount": str(int(float(amount)) * 100),
-		"vnp_CurrCode": "VND",
-		"vnp_TxnRef": order_id,
-		"vnp_OrderInfo": "Thanh toan don hang",
-		"vnp_OrderType": order_type,
-		"vnp_Locale": "vn",
-		"vnp_ReturnUrl": vnp_ReturnUrl,
-		"vnp_IpAddr": ip_address,
-		"vnp_CreateDate": create_date
-	}
+	from .services.vnpay_service import VNPayService, VNPayCreateURLRequest
 	
-	#Tạo chữ ký (vnp_SecureHash) để đảm bảo dữ liệu không bị giả mạo
-	query_string = '&'.join(
-		f"{k}={vnpay_encode(v)}"
-		for k, v in sorted(input_data.items())
-		if v
-	)
-	# Chỉ lấy các key có giá trị, không lấy vnp_SecureHash
-	hash_data = '&'.join(
-		f"{k}={vnpay_encode(v)}"
-		for k, v in sorted(input_data.items())
-		if v and k != "vnp_SecureHash"
-	)
+	try:
+		# Nhận các thông tin đơn hàng từ request
+		amount_str = request.GET.get("amount", "10000")  # đơn vị VND
+		payment_id = request.GET.get("payment_id")
+		txn_ref = request.GET.get("txn_ref")
+		amount = 0
 
-	secure_hash = hmac.new(
-		bytes(vnp_HashSecret, 'utf-8'),
-		bytes(hash_data, 'utf-8'),
-		hashlib.sha512
-	).hexdigest()
-	# Tạo payment_url đầy đủ để redirect người dùng
-	payment_url = f"{vnp_Url}?{query_string}&vnp_SecureHash={secure_hash}"
-	#Trả kết quả về frontend
-	return JsonResponse({"payment_url": payment_url})
+		# Nếu có payment_id, lấy txn_ref từ payment.transaction_id và amount từ payment.amount
+		if payment_id:
+			try:
+				payment = Payment.objects.get(id=payment_id)
+				txn_ref = payment.transaction_id
+				amount = int(payment.amount) if payment.amount else int(float(amount_str))
+			except Payment.DoesNotExist:
+				logger.warning(f"[VNPay] Payment not found for payment_id: {payment_id}")
+				return JsonResponse({'error': 'Payment not found'}, status=400)
+			except Exception as db_err:
+				logger.error(f"[VNPay] Database error retrieving payment {payment_id}: {db_err}", exc_info=True)
+				return JsonResponse({'error': 'Error retrieving payment'}, status=500)
+		else:
+			try:
+				amount = int(float(amount_str))
+			except (ValueError, TypeError):
+				logger.warning(f"[VNPay] Invalid amount parameter: {amount_str}")
+				return JsonResponse({'error': 'Invalid amount'}, status=400)
 
-def vnpay_response_message(code):
-	mapping = {
-		"00": "Giao dịch thành công.",
-		"07": "Trừ tiền thành công. Giao dịch bị nghi ngờ (liên quan tới lừa đảo, giao dịch bất thường).",
-		"09": "Thẻ/Tài khoản chưa đăng ký InternetBanking.",
-		"10": "Xác thực thông tin thẻ/tài khoản không đúng quá 3 lần.",
-		"11": "Hết hạn chờ thanh toán. Vui lòng thực hiện lại giao dịch.",
-		"12": "Thẻ/Tài khoản bị khóa.",
-		"13": "Sai mật khẩu xác thực giao dịch (OTP).",
-		"24": "Khách hàng hủy giao dịch.",
-		"51": "Tài khoản không đủ số dư.",
-		"65": "Tài khoản vượt quá hạn mức giao dịch trong ngày.",
-		"75": "Ngân hàng thanh toán đang bảo trì.",
-		"79": "Sai mật khẩu thanh toán quá số lần quy định.",
-		"99": "Lỗi khác hoặc không xác định.",
-	}
-	return mapping.get(code, "Lỗi không xác định.")
+		# Tạo mã giao dịch và IP address
+		if not txn_ref:
+			import pytz
+			tz = pytz.timezone("Asia/Ho_Chi_Minh")
+			txn_ref = datetime.now(tz).strftime('%H%M%S')
+
+		ip_address = request.META.get('REMOTE_ADDR', '127.0.0.1')
+
+		try:
+			service = VNPayService()
+			result = service.create_payment_url(VNPayCreateURLRequest(
+				amount=amount,
+				txn_ref=txn_ref,
+				ip_address=ip_address,
+				order_info="Thanh toan don hang"
+			))
+			logger.info(f"[VNPay] Successfully created payment URL for txn_ref: {txn_ref}")
+			return JsonResponse({"payment_url": result.payment_url})
+		except ValueError as ve:
+			logger.error(f"[VNPay] Value error during payment URL creation (missing config/invalid data): {ve}")
+			return JsonResponse({'error': str(ve)}, status=500)
+	except Exception as e:
+		logger.error(f"[VNPay] Unexpected error in create_payment_url: {e}", exc_info=True)
+		return JsonResponse({'error': 'Internal server error'}, status=500)
 
 def vnpay_redirect(request):
 	"""
 	Xử lý callback từ VNPay sau khi thanh toán.
 	"""
-	from_app = request.GET.get('from') == 'app'
-	vnp_ResponseCode = request.GET.get('vnp_ResponseCode')
-	vnp_TxnRef = request.GET.get('vnp_TxnRef')
-
-	if vnp_ResponseCode is None:
-		return HttpResponse("Thiếu tham số vnp_ResponseCode.", status=400)
-
-	message = vnpay_response_message(vnp_ResponseCode)
-	payment_success = vnp_ResponseCode == '00'
-
-	payment = None
+	from .services.vnpay_service import get_vnpay_response_message
+	
 	try:
-		payment = Payment.objects.get(transaction_id=vnp_TxnRef)
-		if payment_success:
-			payment.is_paid = True
-			payment.paid_at = timezone.now()
-			payment.save()
+		from_app = request.GET.get('from') == 'app'
+		vnp_ResponseCode = request.GET.get('vnp_ResponseCode')
+		vnp_TxnRef = request.GET.get('vnp_TxnRef')
 
-			# HOÀN TẤT ENROLLMENT khi VNPay thanh toán thành công
-			try:
-				course = payment.course
-				user = payment.user
+		if vnp_ResponseCode is None:
+			logger.warning("[VNPay Redirect] Thiếu tham số vnp_ResponseCode trong callback.")
+			return HttpResponse("Thiếu tham số vnp_ResponseCode.", status=400)
 
-				# Tạo CourseProgress nếu chưa tồn tại
-				if not CourseProgress.objects.filter(learner=user, course=course).exists():
-					CourseProgress.objects.create(learner=user, course=course)
+		message = get_vnpay_response_message(vnp_ResponseCode)
+		payment_success = vnp_ResponseCode == '00'
 
-				# Tạo thông báo thanh toán thành công và enrollment
+		payment = None
+		try:
+			payment = Payment.objects.get(transaction_id=vnp_TxnRef)
+			if payment_success:
+				payment.is_paid = True
+				payment.paid_at = timezone.now()
+				payment.save()
+
+				# HOÀN TẤT ENROLLMENT khi VNPay thanh toán thành công
 				try:
+					course = payment.course
+					user = payment.user
+
+					# Tạo CourseProgress nếu chưa tồn tại
+					if not CourseProgress.objects.filter(learner=user, course=course).exists():
+						CourseProgress.objects.create(learner=user, course=course)
+
+					# Tạo thông báo thanh toán thành công và enrollment
+					try:
+						Notification.objects.create(
+							course=course,
+							notification_type='course_enrollment',
+							title='Thanh toán VNPay thành công',
+							message=f'Thanh toán VNPay thành công và đã đăng ký khóa học "{course.title}". Số tiền: {payment.amount:,.0f} VNĐ'
+						).send_to_user(user,send_email=True)
+						logger.info(f"[VNPay Redirect] Created VNPay success notification for course enrollment {course.id}")
+					except Exception as notification_error:
+						logger.error(f"[VNPay Redirect] Failed to create VNPay success notification: {notification_error}", exc_info=True)
+
+					logger.info(f"[VNPay Redirect] VNPay payment successful and enrollment completed for course {course.id}")
+				except Exception as enrollment_error:
+					logger.error(f"[VNPay Redirect] Failed to complete enrollment after VNPay payment {vnp_TxnRef}: {enrollment_error}", exc_info=True)
+
+				logger.info(f"[VNPay Redirect] VNPay payment successful for transaction {vnp_TxnRef}")
+			else:
+				payment.is_paid = False
+				payment.save()
+
+				# Tạo notification cho user về thanh toán thất bại
+				try:
+					course = payment.course
+					user = payment.user
 					Notification.objects.create(
-						course=course,
-						notification_type='course_enrollment',
-						title='Thanh toán VNPay thành công',
-						message=f'Thanh toán VNPay thành công và đã đăng ký khóa học "{course.title}". Số tiền: {payment.amount:,.0f} VNĐ'
-					).send_to_user(user,send_email=True)
-					logger.info(f"Created VNPay success notification for course enrollment {course.id}")
+						user=user,
+						notification_type='payment_failed',
+						title='Thanh toán VNPay thất bại',
+						message=f'Thanh toán VNPay thất bại cho khóa học "{course.title}". Lý do: {message}. Vui lòng thử lại.'
+					)
+					logger.info(f"[VNPay Redirect] Created VNPay failure notification for course {course.id}")
 				except Exception as notification_error:
-					logger.error(f"Failed to create VNPay success notification: {notification_error}")
+					logger.error(f"[VNPay Redirect] Failed to create VNPay failure notification: {notification_error}", exc_info=True)
 
-				logger.info(f"VNPay payment successful and enrollment completed for course {course.id}")
-			except Exception as enrollment_error:
-				logger.error(f"Failed to complete enrollment after VNPay payment {vnp_TxnRef}: {enrollment_error}")
-
-			logger.info(f"VNPay payment successful for transaction {vnp_TxnRef}")
-		else:
-			payment.is_paid = False
-			payment.save()
-
-			# Tạo notification cho user về thanh toán thất bại
-			try:
-				course = payment.course
-				user = payment.user
-				Notification.objects.create(
-					user=user,
-					notification_type='payment_failed',
-					title='Thanh toán VNPay thất bại',
-					message=f'Thanh toán VNPay thất bại cho khóa học "{course.title}". Lý do: {message}. Vui lòng thử lại.'
-				)
-				logger.info(f"Created VNPay failure notification for course {course.id}")
-			except Exception as notification_error:
-				logger.error(f"Failed to create VNPay failure notification: {notification_error}")
-
-			logger.warning(f"VNPay payment failed for transaction {vnp_TxnRef}: {message}")
-	except Payment.DoesNotExist:
-		logger.error(f"Payment not found for transaction {vnp_TxnRef}")
+				logger.warning(f"[VNPay Redirect] VNPay payment failed for transaction {vnp_TxnRef}: {message}")
+		except Payment.DoesNotExist:
+			logger.error(f"[VNPay Redirect] Payment not found for transaction {vnp_TxnRef}")
+	except Exception as e:
+		logger.error(f"[VNPay Redirect] Unexpected error handling callback for txn {request.GET.get('vnp_TxnRef')}: {e}", exc_info=True)
+		payment_success = False
+		message = "Đã xảy ra lỗi hệ thống khi xử lý thanh toán."
+		payment = None
 
 	# Tạo frontend redirect URL với thông tin course để không mất context
 	# Sử dụng environment variable cho frontend URL
