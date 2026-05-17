@@ -32,6 +32,7 @@ import auth from '../services/auth';
 import { getUnreadNotifications } from '../services/apis';
 import { useUnreadNotificationsPolling } from '../hooks/useSmartPolling';
 import AdminPanelSettings from '@mui/icons-material/AdminPanelSettings';
+import useNotification from '../hooks/useNotification';
 
 const fullMenuItemsByRole = {
   admin: [
@@ -90,16 +91,21 @@ const Header = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [user, setUser] = useState(null);
   const [userRole, setUserRole] = useState('guest');
-  const [notifications, setNotifications] = useState(0);
+
+  // WS real-time notifications (array of notification objects)
+  const wsNotifications = useNotification();
+
+  // HTTP-polled unread count (integer badge)
+  const [unreadCount, setUnreadCount] = useState(0);
 
   // Fetch unread notification count
   const fetchUnreadCount = async () => {
     try {
       const response = await getUnreadNotifications();
-      setNotifications(response.unread_count || 0);
+      setUnreadCount(response.unread_count || 0);
     } catch (error) {
       console.error('Failed to fetch unread notifications:', error);
-      setNotifications(0);
+      setUnreadCount(0);
     }
   };
 
@@ -111,17 +117,16 @@ const Header = () => {
         if (userInfo) {
           setUser(userInfo);
           setUserRole(userInfo.role || 'learner');
-          // Fetch real unread notification count
           await fetchUnreadCount();
         } else {
           setUser(null);
           setUserRole('guest');
-          setNotifications(0);
+          setUnreadCount(0);
         }
       } else {
         setUser(null);
         setUserRole('guest');
-        setNotifications(0);
+        setUnreadCount(0);
       }
     };
     fetchUser();
@@ -151,7 +156,7 @@ const Header = () => {
     if (auth) await auth.logout();
     setUser(null);
     setUserRole('guest');
-    setNotifications(0);
+    setUnreadCount(0);
     handleNavigation('/');
   };
 
@@ -269,12 +274,24 @@ const Header = () => {
 
           {/* Account + Notification */}
           <Box sx={{ flexGrow: 0, display: 'flex', alignItems: 'center' }}>
-            {user && (
-              <NotificationDropdown
-                notificationCount={notifications}
-                onNotificationUpdate={setNotifications}
-                onRefreshUnreadCount={fetchUnreadCount}
-              />
+            {user && wsNotifications.length > 0 && (
+              <Menu
+                sx={{ mt: '45px' }}
+                anchorEl={anchorElUser}
+                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+                keepMounted
+                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                open={Boolean(anchorElUser)}
+                onClose={handleCloseUserMenu}
+              >
+                {wsNotifications.map((notification, index) => (
+                  <MenuItem key={notification.notification_id ?? index}>
+                    <Typography variant="body2" color="text.primary">
+                      {notification.message}
+                    </Typography>
+                  </MenuItem>
+                ))}
+              </Menu>
             )}
             <Tooltip title="Tài khoản">
               <IconButton onClick={handleOpenUserMenu} sx={{ p: 0 }}>
@@ -287,34 +304,6 @@ const Header = () => {
                 )}
               </IconButton>
             </Tooltip>
-            <Menu
-              sx={{ mt: '45px' }}
-              anchorEl={anchorElUser}
-              anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-              keepMounted
-              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-              open={Boolean(anchorElUser)}
-              onClose={handleCloseUserMenu}
-            >
-              {user && (
-                <Box sx={{ px: 2, py: 1, borderBottom: '1px solid #eee' }}>
-                  <Typography variant="subtitle1" fontWeight="bold">
-                    {user.full_name || user.username}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {user.email}
-                  </Typography>
-                  <Typography variant="caption" color="primary.main" fontWeight="bold">
-                    {userRole.toUpperCase()}
-                  </Typography>
-                </Box>
-              )}
-              {userMenuItems.map((item, index) => (
-                <MenuItem key={index} onClick={item.action}>
-                  <Typography textAlign="center">{item.text}</Typography>
-                </MenuItem>
-              ))}
-            </Menu>
           </Box>
         </Toolbar>
       </AppBar>

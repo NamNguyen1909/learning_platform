@@ -7,6 +7,7 @@ learning_platform/
     requirements.txt
     seed.py
     structure.txt
+    agents/
     frontend/
         eslint.config.js
         index.html
@@ -31,6 +32,7 @@ learning_platform/
                 NotificationDropdown.jsx
                 UserList.jsx
             hooks/
+                useNotification.js
                 useSmartPolling.js
             pages/
                 CenterManagement.jsx
@@ -58,10 +60,13 @@ learning_platform/
     learningapi/
         admin.py
         apps.py
+        consumers.py
+        middleware.py
         models.py
         paginators.py
         permissions.py
         pipeline.py
+        routing.py
         serializers.py
         signals.py
         tasks.py
@@ -76,6 +81,7 @@ learning_platform/
             document_ingestion.py
             rag_service.py
             supabase_service.py
+            vnpay_service.py
     learning_platform/
         asgi.py
         celery.py
@@ -83,3 +89,12 @@ learning_platform/
         urls.py
         wsgi.py
         __init__.py
+    prompts/
+        refactor_trigger.md
+    rules/
+        auto_audit_rules.md
+        backend_rules.md
+        frontend_rules.md
+    skills/
+        git_commit_skill.md
+        service_layer_skill.md

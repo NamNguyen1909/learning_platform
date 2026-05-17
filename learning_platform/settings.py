@@ -53,6 +53,7 @@ ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -156,8 +157,13 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'learning_platform.wsgi.application'
+ASGI_APPLICATION = 'learning_platform.asgi.application'
 
-
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer"
+    }
+}
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases

@@ -16,4 +16,4 @@ def generate_tree(startpath, exclude_dirs):
 # Danh sách thư mục cần loại bỏ để tránh loãng ngữ cảnh AI
 exclude = ['node_modules', 'venv', '__pycache__', 'dist', 'build']
 generate_tree(os.getcwd(), exclude)
-print("Đã xuất cấu trúc thư mục sạch vào file structure.txt thành công!")
+print("Clean directory structure successfully exported to structure.txt!")

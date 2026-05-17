@@ -98,3 +98,8 @@
 ## Git Commit Messaging Rules
 - When generating, suggesting, or auto-filling Git commit messages, Copilot MUST strictly follow the specifications declared in `skills/git_commit_skill.md`.
 - Never generate conversational, compound sentences or past-tense headers. Keep the subject line under 50 characters, lowercase, and imperative.
+
+## Post-Generation Self-Audit Protocol
+- After writing code or proposing inline modifications, you must strictly read and adhere to the guidelines inside `rules/auto_audit_rules.md`.
+- Automatically run a comparative analysis on the code you generated against the existing system structure to prevent technical regression, memory leaks, and architectural drifting.
+- Self-correct any memory leaks, N+1 query omissions, or layout version mismatches internally before presenting the final result.
