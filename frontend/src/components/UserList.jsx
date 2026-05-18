@@ -202,7 +202,43 @@ const UserList = ({ userType }) => {
                     <TableCell sx={{ width: '10%' }}>Status</TableCell>
                     {!isSmallScreen && <TableCell sx={{ width: '10%' }}>Created At</TableCell>}
                     <TableCell align="right" sx={{ width: '20%' }}>Actions</TableCell>
-                  </TableRow>          </TableBody>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {users.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell sx={{ width: '10%' }}><Avatar src={user.avatar} alt={user.username} /></TableCell>
+                      <TableCell sx={{ width: '15%' }}>{user.username}</TableCell>
+                      <TableCell sx={{ width: '20%' }}>{user.email}</TableCell>
+                      {!isSmallScreen && <TableCell sx={{ width: '15%' }}>{user.phone}</TableCell>}
+                      <TableCell sx={{ width: '10%' }}>
+                        <Switch
+                          checked={user.is_active}
+                          onChange={() => handleToggleActive(user)}
+                          color={user.is_active ? "success" : "default"}
+                        />
+                      </TableCell>
+                      {!isSmallScreen && <TableCell sx={{ width: '15%' }}>{new Date(user.created_at).toLocaleDateString()}</TableCell>}
+                      <TableCell align="right" sx={{ width: '15%' }}>
+                        <Tooltip title="View">
+                          <IconButton color="primary" onClick={() => handleOpenModal('view', user)}>
+                            <VisibilityIcon />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Edit">
+                          <IconButton color="secondary" onClick={() => handleOpenModal('edit', user)}>
+                            <EditIcon />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title={user.is_active ? "Deactivate" : "Activate"}>
+                          <IconButton color={user.is_active ? "error" : "success"} onClick={() => handleToggleActive(user)}>
+                            {user.is_active ? <BlockIcon /> : <CheckCircleIcon />}
+                          </IconButton>
+                        </Tooltip>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
               </Table>
             </TableContainer>
           </div>
