@@ -40,6 +40,22 @@ def extract_text(doc: Document) -> str:
             print(f"[Ingest] Failed to download file from Supabase: {response.status_code}")
     # Nếu có URL (ví dụ YouTube hoặc web link)
     elif doc.url:
+        import socket
+        import ipaddress
+        from urllib.parse import urlparse
+        
+        parsed_url = urlparse(doc.url)
+        try:
+            if parsed_url.hostname:
+                resolved_ip = socket.gethostbyname(parsed_url.hostname)
+                ip = ipaddress.ip_address(resolved_ip)
+                if ip.is_private or ip.is_loopback or ip.is_link_local:
+                    raise PermissionError("SSRF Risk: Private or loopback IP addresses are forbidden.")
+        except socket.gaierror:
+            pass # DNS resolution failed, requests.get will also naturally fail
+        except ValueError:
+            pass # Invalid IP format
+
         if "youtube.com" in doc.url or "youtu.be" in doc.url:
             text = extract_youtube_transcript(doc.url)
         else:

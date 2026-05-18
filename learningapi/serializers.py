@@ -1,6 +1,5 @@
 from rest_framework import serializers
 from .models import *
-import cloudinary.utils
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -79,6 +78,7 @@ class DocumentCompletionSerializer(serializers.ModelSerializer):
     class Meta:
         model = DocumentCompletion
         fields = ['id', 'user', 'document', 'is_complete', 'completed_at']
+        read_only_fields = ['is_complete', 'completed_at']
 
 
 class CourseProgressSerializer(serializers.ModelSerializer):
@@ -87,6 +87,7 @@ class CourseProgressSerializer(serializers.ModelSerializer):
     class Meta:
         model = CourseProgress
         fields = ['id', 'student', 'course', 'enrolled_at', 'completed_at', 'progress', 'is_completed', 'updated_at']
+        read_only_fields = ['enrolled_at', 'completed_at', 'progress', 'is_completed']
 
 class TagSerializer(serializers.ModelSerializer):
     class Meta:
@@ -112,6 +113,7 @@ class PaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Payment
         fields = ['id', 'user', 'course', 'amount', 'payment_method', 'is_paid', 'paid_at', 'transaction_id', 'created_at']
+        read_only_fields = ['is_paid', 'paid_at', 'transaction_id']
 
 class ReviewSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)

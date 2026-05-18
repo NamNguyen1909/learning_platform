@@ -1,6 +1,5 @@
 from django.db import models
 from cloudinary.models import CloudinaryField
-from cloudinary.uploader import upload
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.utils import timezone
 from django.utils.timezone import localtime
@@ -45,6 +44,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 	email = models.EmailField(max_length=255, unique=True, db_index=True)
 	full_name = models.CharField(max_length=255, null=True, blank=True)
 	role = models.CharField(max_length=20, choices=UserRole.choices, default=UserRole.LEARNER)
+	center = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, limit_choices_to={'role': UserRole.CENTER}, related_name='center_users')
 	phone = models.CharField(max_length=15, null=True, blank=True)
 	avatar = CloudinaryField('avatar', folder='learning_platform/user_avatars', null=True, blank=True)
 	is_active = models.BooleanField(default=True)
@@ -70,6 +70,7 @@ class Tag(models.Model):
 # Course Model
 class Course(models.Model):
 	title = models.CharField(max_length=255, db_index=True, unique=True)
+	center = models.ForeignKey('User', on_delete=models.CASCADE, related_name='center_courses', limit_choices_to={'role': UserRole.CENTER}, null=True)
 	description = models.TextField(null=True, blank=True)
 	image = CloudinaryField('image', folder='learning_platform/course_images', null=True, blank=True)
 	instructor = models.ForeignKey('User', on_delete=models.CASCADE, related_name='courses', limit_choices_to={'role': UserRole.INSTRUCTOR})
@@ -128,9 +129,8 @@ class CourseProgress(models.Model):
 
 	@classmethod
 	def update_all_progress(cls, course):
-		learners = cls.objects.filter(course=course).values_list('learner', flat=True)
-		for learner_id in learners:
-			learner = User.objects.get(id=learner_id)
+		learners = User.objects.filter(course_progress__course=course)
+		for learner in learners:
 			cls.update_progress_for_user(learner, course)
 
 	def update_progress(self):
@@ -268,59 +268,19 @@ class Notification(models.Model):
 
 	def send_to_users(self, users, send_email=False):
 		"""Send this notification to multiple users"""
-		user_notifications = []
-		for user in users:
-			un = UserNotification.objects.create(
-				user=user,
-				notification=self
-			)
-			user_notifications.append(un)
+		user_notifications = [
+			UserNotification(user=user, notification=self) for user in users
+		]
+		created_notifications = UserNotification.objects.bulk_create(user_notifications)
 		if send_email:
 			for user in users:
 				self._send_email_to_user(user)
-		return user_notifications
+		return created_notifications
 
 	def _send_email_to_user(self, user):
-		"""Send email to user with notification details using Anymail/Brevo"""
-		from django.core.mail import EmailMultiAlternatives
-		from django.conf import settings
-		print('Sending email to', user.email)
-
-		subject = self.title
-		from_email = settings.DEFAULT_FROM_EMAIL
-		to = [user.email]
-		text_content = self.message
-		html_content = f"""
-		<html>
-		<head>
-			<style>
-				body {{ font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }}
-				.container {{ max-width: 600px; margin: 20px auto; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }}
-				.header {{ background-color: #007bff; color: #ffffff; padding: 10px; text-align: center; border-radius: 8px 8px 0 0; }}
-				.content {{ padding: 20px; }}
-				.footer {{ text-align: center; padding: 10px; font-size: 12px; color: #666; }}
-			</style>
-		</head>
-		<body>
-			<div class="container">
-				<div class="header">
-					<h2>{self.title}</h2>
-				</div>
-				<div class="content">
-					<p>Xin chào {user.full_name or user.username},</p>
-					<p>{self.message}</p>
-					<p>Trân trọng,<br>Đội ngũ Smart Learning Platform</p>
-				</div>
-				<div class="footer">
-					<p>Nếu bạn có bất kỳ câu hỏi nào, vui lòng liên hệ với chúng tôi.</p>
-				</div>
-			</div>
-		</body>
-		</html>
-		"""
-		msg = EmailMultiAlternatives(subject, text_content, from_email, to)
-		msg.attach_alternative(html_content, "text/html")
-		msg.send()
+		"""Deferred to Service Layer"""
+		from learningapi.services.email_service import send_notification_email
+		send_notification_email(user, self)
 
 # UserNotification Model
 class UserNotification(models.Model):
@@ -344,6 +304,7 @@ class Chunk(models.Model):
 	meta = models.JSONField(default=dict, blank=True)
 
 	class Meta:
-		indexes = []
-		# indexes = [GinIndex(fields=["embedding"])]
+		indexes = [
+			GinIndex(fields=["embedding"], opclasses=["vector_cosine_ops"])
+		]
 

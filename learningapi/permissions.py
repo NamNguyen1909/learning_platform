@@ -28,6 +28,11 @@ class CanCRUDDocument(permissions.BasePermission):
     def has_permission(self, request, view):
         return super().has_permission(request, view) and request.user.role in ['admin', 'instructor']
     
+    def has_object_permission(self, request, view, obj):
+        if getattr(request.user, 'role', None) == 'admin':
+            return True
+        return obj.uploaded_by == request.user or obj.course.instructor == request.user
+    
 class CanViewDocument(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
         user = request.user

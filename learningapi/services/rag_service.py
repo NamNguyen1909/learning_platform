@@ -1,6 +1,5 @@
 from django.db.models import F
 from ..models import Chunk
-from openai import OpenAI
 import numpy as np
 from pgvector.django import CosineDistance
 import os
@@ -12,18 +11,6 @@ import google.generativeai as genai
 # OpenAI text-embedding-ada-002: 1536 chiều.
 # OpenAI text-embedding-3-large: 3072 chiều.
 # HuggingFace all-MiniLM-L6-v2: 384 chiều.
-
-#OpenAI
-# def get_embedding(text: str) -> np.ndarray:
-#     """
-#     Sinh embedding cho text bằng OpenAI.
-#     """
-#     client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-#     response = client.embeddings.create(
-#         input=text,
-#         model="text-embedding-3-large"  # nên dùng model mới, chuẩn hơn
-#     )
-#     return np.array(response.data[0].embedding, dtype=np.float32)
 
 # HuggingFace (dev mode)
 def get_embedding(text: str) -> np.ndarray:
@@ -99,31 +86,7 @@ Yêu cầu:
 - Luôn ghi rõ nguồn tham khảo cuối câu trả lời.
     """
 
-    # 4. Gọi GPT
-
-    #dev mode với LM Studio
-    # client = OpenAI(
-    #     base_url="http://localhost:1234/v1",
-    #     api_key="lm-studio"  # dummy key
-    # )
-
-    # resp = client.chat.completions.create(
-    #     model="openai/gpt-oss-20b",
-    #     messages=[
-    #         {"role": "system", "content": "Bạn là AI tutor."},
-    #         {"role": "user", "content": prompt}
-    #     ]
-    # )
-
-    #OpenAI
-    # client = OpenAI()
-    # resp = client.chat.completions.create(
-    #     model="gpt-4o-mini",
-    #     messages=[{"role": "user", "content": prompt}],
-    #     temperature=0.3,
-    #     max_tokens=800
-    # )
-    # answer = resp.choices[0].message.content
+    # 4. Gọi Model Generative AI
 
     # Google Generative AI (Gemini)
     genai.configure(api_key=os.environ.get("GOOGLE_API_KEY"))

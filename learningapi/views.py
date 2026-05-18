@@ -1,14 +1,10 @@
 import logging
 import threading
-from httpcore import request
-
-logger = logging.getLogger(__name__)
 from django.http import HttpResponse, JsonResponse
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import viewsets, generics
-import urllib
 from .paginators import *
 from .permissions import *
 from .serializers import *
@@ -22,14 +18,16 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from django.utils.timezone import localtime
 from datetime import datetime
-import os,hashlib,hmac
+import os
+import hashlib
+import hmac
 import uuid
 
-from rest_framework.decorators import action
 from django.shortcuts import get_object_or_404
 from .services.rag_service import generate_ai_answer
-
 from learningapi.tasks import ingest_document_task
+
+logger = logging.getLogger(__name__)
 
 # Health check endpoint for Render deployment
 @csrf_exempt
@@ -65,19 +63,25 @@ class CourseStatisticsView(APIView):
 	parser_classes = [StatisticsPagination]
 
 	def get(self, request):
-		total_courses = Course.objects.count()
-		active_courses = Course.objects.filter(is_active=True).count()
-		draft_courses = Course.objects.filter(is_published=False).count()
-		published_courses = Course.objects.filter(is_published=True).count()
-		paid_courses = Course.objects.filter(price__gt=0).count()
-		free_courses = Course.objects.filter(price=0).count()
-		course_registrations = CourseProgress.objects.values('course').annotate(count=models.Count('id'))
-		completed = CourseProgress.objects.filter(is_completed=True).count()
-		total_progress = CourseProgress.objects.count()
+		course_qs = Course.objects.all()
+		if getattr(request.user, 'role', None) == 'center':
+			course_qs = course_qs.filter(center=request.user)
+
+		total_courses = course_qs.count()
+		active_courses = course_qs.filter(is_active=True).count()
+		draft_courses = course_qs.filter(is_published=False).count()
+		published_courses = course_qs.filter(is_published=True).count()
+		paid_courses = course_qs.filter(price__gt=0).count()
+		free_courses = course_qs.filter(price=0).count()
+		
+		progress_qs = CourseProgress.objects.filter(course__in=course_qs)
+		course_registrations = progress_qs.values('course').annotate(count=models.Count('id'))
+		completed = progress_qs.filter(is_completed=True).count()
+		total_progress = progress_qs.count()
 		completion_rate = round(completed / total_progress * 100, 2) if total_progress else 0
 
 		# Phân trang cho course_stats
-		course_stats_qs = Course.objects.annotate(reg_count=models.Count('course_progress')).order_by('-reg_count')
+		course_stats_qs = course_qs.annotate(reg_count=models.Count('course_progress')).order_by('-reg_count')
 		paginator = StatisticsPagination()
 		paginator.page_query_param = 'page'
 		paged_course_stats = paginator.paginate_queryset(course_stats_qs, request)
@@ -92,19 +96,21 @@ class CourseStatisticsView(APIView):
 		]
 
 		# Phân trang cho doc_counts
-		doc_counts_qs = Document.objects.values('course').annotate(count=models.Count('id')).order_by('-count')
+		doc_counts_qs = Document.objects.filter(course__in=course_qs).values('course').annotate(count=models.Count('id')).order_by('-count')
 		paginator_doc = StatisticsPagination()
 		paginator_doc.page_query_param = 'doc_page'
 		paged_doc_counts = paginator_doc.paginate_queryset(doc_counts_qs, request)
+		course_ids = [d['course'] for d in paged_doc_counts if d['course']]
+		course_title_map = dict(Course.objects.filter(id__in=course_ids).values_list('id', 'title'))
 		doc_counts_data = [
 			{
-				'course': Course.objects.get(id=d['course']).title if d['course'] else '',
+				'course': course_title_map.get(d['course'], '') if d['course'] else '',
 				'count': d['count']
 			} for d in paged_doc_counts
 		]
 
 		# Phân trang cho payments
-		payments_qs = Payment.objects.filter(is_paid=True).values('course').annotate(total=models.Sum('amount')).order_by('-total')
+		payments_qs = Payment.objects.filter(is_paid=True, course__in=course_qs).values('course').annotate(total=models.Sum('amount')).order_by('-total')
 		paginator_pay = StatisticsPagination()
 		paginator_pay.page_query_param = 'pay_page'
 		paged_payments = paginator_pay.paginate_queryset(payments_qs, request)
@@ -142,12 +148,16 @@ class InstructorStatisticsView(APIView):
 	parser_classes = [StatisticsPagination]
 
 	def get(self, request):
-		total_instructors = User.objects.filter(role="instructor").count()
-		active_instructors = User.objects.filter(role="instructor", is_active=True).count()
-		locked_instructors = User.objects.filter(role="instructor", is_active=False).count()
+		instructor_qs = User.objects.filter(role="instructor")
+		if getattr(request.user, 'role', None) == 'center':
+			instructor_qs = instructor_qs.filter(center=request.user)
+
+		total_instructors = instructor_qs.count()
+		active_instructors = instructor_qs.filter(is_active=True).count()
+		locked_instructors = instructor_qs.filter(is_active=False).count()
 
 		# Phân trang cho instructor_courses
-		instructor_courses_qs = User.objects.filter(role="instructor").annotate(course_count=models.Count('courses')).order_by('-course_count')
+		instructor_courses_qs = instructor_qs.annotate(course_count=models.Count('courses')).order_by('-course_count')
 		paginator = StatisticsPagination()
 		paged_instructor_courses = paginator.paginate_queryset(instructor_courses_qs, request)
 		instructor_courses_data = [
@@ -156,7 +166,7 @@ class InstructorStatisticsView(APIView):
 		]
 
 		# Phân trang cho instructor_learners
-		instructor_learners_qs = User.objects.filter(role="instructor").annotate(
+		instructor_learners_qs = instructor_qs.annotate(
 			course_count=models.Count('courses'),
 			learner_count=models.Count('courses__course_progress')
 		).order_by('-learner_count')
@@ -172,7 +182,7 @@ class InstructorStatisticsView(APIView):
 		]
 
 		# Phân trang cho instructor_ratings
-		instructor_ratings_qs = User.objects.filter(role="instructor").annotate(
+		instructor_ratings_qs = instructor_qs.annotate(
 			avg_rating=models.Avg('courses__reviews__rating')
 		).order_by('-avg_rating')
 		paginator_ratings = StatisticsPagination()
@@ -211,23 +221,33 @@ class LearnerStatisticsView(APIView):
 	parser_classes = [StatisticsPagination]
 
 	def get(self, request):
-		total_learners = User.objects.filter(role="learner").count()
-		active_learners = User.objects.filter(role="learner", is_active=True).count()
-		locked_learners = User.objects.filter(role="learner", is_active=False).count()
+		base_learner_qs = User.objects.filter(role="learner")
+		if getattr(request.user, 'role', None) == 'center':
+			base_learner_qs = base_learner_qs.filter(center=request.user)
+
+		total_learners = base_learner_qs.count()
+		active_learners = base_learner_qs.filter(is_active=True).count()
+		locked_learners = base_learner_qs.filter(is_active=False).count()
 
 		# Phân trang cho learner_stats (explicit ordering)
-		learner_qs = User.objects.filter(role="learner").order_by('-id')
+		learner_qs = base_learner_qs.annotate(
+			registered_count=models.Count('course_progress', distinct=True),
+			completed_count=models.Count('course_progress', filter=models.Q(course_progress__is_completed=True), distinct=True),
+			in_progress_count=models.Count('course_progress', filter=models.Q(course_progress__is_completed=False), distinct=True),
+			rev_count=models.Count('course_reviews', distinct=True),
+			q_count=models.Count('questions', distinct=True)
+		).order_by('-id')
 		paginator = StatisticsPagination()
 		paged_learners = paginator.paginate_queryset(learner_qs, request)
 		learner_stats = [
 			{
 				'id': l.id,
 				'username': l.username,
-				'registered': l.course_progress.count(),
-				'completed': l.course_progress.filter(is_completed=True).count(),
-				'in_progress': l.course_progress.filter(is_completed=False).count(),
-				'review_count': l.course_reviews.count(),
-				'question_count': l.questions.count(),
+				'registered': l.registered_count,
+				'completed': l.completed_count,
+				'in_progress': l.in_progress_count,
+				'review_count': l.rev_count,
+				'question_count': l.q_count,
 			} for l in paged_learners
 		]
 		# Tỷ lệ hoàn thành trung bình
@@ -235,12 +255,12 @@ class LearnerStatisticsView(APIView):
 		total_registered = sum(l['registered'] for l in learner_stats)
 		avg_completion = round(total_completed / total_registered * 100, 2) if total_registered else 0
 		# Phân trang cho top_learners
-		top_learners_qs = User.objects.filter(role="learner").annotate(
-			registered=models.Count('course_progress'),
-			completed=models.Count('course_progress', filter=models.Q(course_progress__is_completed=True)),
-			in_progress=models.Count('course_progress', filter=models.Q(course_progress__is_completed=False)),
-			review_count=models.Count('course_reviews'),
-			question_count=models.Count('questions')
+		top_learners_qs = base_learner_qs.annotate(
+			registered=models.Count('course_progress', distinct=True),
+			completed=models.Count('course_progress', filter=models.Q(course_progress__is_completed=True), distinct=True),
+			in_progress=models.Count('course_progress', filter=models.Q(course_progress__is_completed=False), distinct=True),
+			review_count=models.Count('course_reviews', distinct=True),
+			question_count=models.Count('questions', distinct=True)
 		).order_by('-completed', '-review_count', '-question_count', '-id')
 		paginator_top = StatisticsPagination()
 		paged_top_learners = paginator_top.paginate_queryset(top_learners_qs, request)
@@ -758,7 +778,7 @@ class DocumentViewSet(viewsets.ViewSet,generics.ListAPIView,generics.RetrieveAPI
 			return Response({"error": "Course not found"}, status=status.HTTP_404_NOT_FOUND)
 
 		# Check if user has permission to upload to this course
-		if not (request.user == course.instructor or hasattr(request.user, 'role') and request.user.role in ['admin', 'center','instructor']):
+		if not (request.user == course.instructor or hasattr(request.user, 'role') and request.user.role in ['admin', 'center']):
 			return Response({"error": "You don't have permission to upload to this course"}, status=status.HTTP_403_FORBIDDEN)
 
 		file_name = f"{request.user.id}_{file.name}"  # tránh trùng tên
