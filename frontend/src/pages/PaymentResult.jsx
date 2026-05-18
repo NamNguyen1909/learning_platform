@@ -87,7 +87,7 @@ const PaymentResult = () => {
       </Box>
 
       <Grid container spacing={3}>
-        <Grid item xs={12} md={8}>
+        <Grid size={{ xs: 12, md: 8 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" component="h2" gutterBottom>
@@ -96,12 +96,12 @@ const PaymentResult = () => {
 
               <Box sx={{ mb: 2 }}>
                 <Grid container spacing={2}>
-                  <Grid item xs={6}>
+                  <Grid size={{ xs: 6 }}>
                     <Typography variant="body2" color="text.secondary">
                       Trạng thái:
                     </Typography>
                   </Grid>
-                  <Grid item xs={6}>
+                  <Grid size={{ xs: 6 }}>
                     <Chip
                       label={result?.success ? 'Thành công' : 'Thất bại'}
                       color={result?.success ? 'success' : 'error'}
@@ -111,12 +111,12 @@ const PaymentResult = () => {
 
                   {result?.courseId && (
                     <>
-                      <Grid item xs={6}>
+                      <Grid size={{ xs: 6 }}>
                         <Typography variant="body2" color="text.secondary">
                           ID khóa học:
                         </Typography>
                       </Grid>
-                      <Grid item xs={6}>
+                      <Grid size={{ xs: 6 }}>
                         <Typography variant="body2" fontWeight="bold">
                           {result.courseId}
                         </Typography>
@@ -129,7 +129,7 @@ const PaymentResult = () => {
           </Card>
         </Grid>
 
-        <Grid item xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" component="h3" gutterBottom>

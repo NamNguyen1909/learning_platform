@@ -21,7 +21,6 @@ const Register = () => {
     email: "",
     password: "",
     confirmPassword: "",
-    role: "learner",
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -42,11 +41,11 @@ const Register = () => {
     }
     setLoading(true);
     try {
+      // role is intentionally omitted — backend assigns 'learner' as the default
       await api.post(endpoints.user.create, {
         username: form.username,
         email: form.email,
         password: form.password,
-        role: form.role,
       });
       setSuccess("Đăng ký thành công! Vui lòng đăng nhập.");
       setTimeout(() => navigate("/login"), 1500);
@@ -140,19 +139,7 @@ const Register = () => {
               ),
             }}
           />
-          <TextField
-            select
-            label="Vai trò"
-            name="role"
-            value={form.role}
-            onChange={handleChange}
-            fullWidth
-            margin="normal"
-            required
-          >
-            <MenuItem value="learner">Học viên</MenuItem>
-            <MenuItem value="instructor">Giảng viên</MenuItem>
-          </TextField>
+          {/* Role is assigned by the backend — not exposed to self-registering users */}
           {error && (
             <Typography color="error" variant="body2" mt={1} align="center">
               {error}

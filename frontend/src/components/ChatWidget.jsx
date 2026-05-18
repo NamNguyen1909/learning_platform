@@ -13,8 +13,8 @@ import ChatIcon from '@mui/icons-material/Chat';
 import CloseIcon from '@mui/icons-material/Close';
 import api, { endpoints } from '../services/apis';
 import authUtils from '../services/auth';
-import Linkify from 'react-linkify';
 import ReactMarkdown from 'react-markdown';
+import rehypeSanitize from 'rehype-sanitize';
 
 const ChatWidget = ({ courseId }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -200,7 +200,9 @@ const ChatWidget = ({ courseId }) => {
               >
                   {messages.map((msg, index) => (
                   <Message key={index} model={msg}>
+                    {/* rehypeSanitize prevents XSS from AI-generated markdown content */}
                     <ReactMarkdown
+                      rehypePlugins={[rehypeSanitize]}
                       components={{
                         a: ({ node, ...props }) => (
                           <a {...props} target="_blank" rel="noopener noreferrer" />

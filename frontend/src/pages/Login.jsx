@@ -28,9 +28,7 @@ const Login = () => {
   };
 
   const handleSocialLogin = (provider) => {
-    
     window.location.href = endpoints.social_auth[provider];
-    console.log(endpoints.social_auth[provider])
   };
 
   return (

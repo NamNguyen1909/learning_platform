@@ -1,4 +1,3 @@
-import { GitHub } from "@mui/icons-material";
 import axios from "axios";
 
 const BE_ROOT = (
@@ -26,61 +25,11 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor để xử lý token hết hạn
+// Response interceptor — token refresh is handled exclusively by auth.setupInterceptors()
+// which is bootstrapped once in main.jsx. This layer only propagates errors.
 api.interceptors.response.use(
-  (response) => {
-    return response;
-  },
-  async (error) => {
-    const originalRequest = error.config;
-
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-
-      const refreshToken = localStorage.getItem("refresh_token");
-      if (refreshToken) {
-        try {
-          console.log("Attempting to refresh token...");
-          const response = await axios.post(
-            `${
-              import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000"
-            }/api/auth/token/refresh/`,
-            {
-              refresh: refreshToken,
-            }
-          );
-
-          const { access } = response.data;
-          localStorage.setItem("access_token", access);
-          api.defaults.headers.common["Authorization"] = `Bearer ${access}`;
-
-          console.log("Token refreshed successfully");
-
-          // Retry original request with new token
-          originalRequest.headers.Authorization = `Bearer ${access}`;
-          return api(originalRequest);
-        } catch (refreshError) {
-          console.error("Token refresh failed:", refreshError);
-          // Refresh failed, clear tokens but don't auto-redirect in API layer
-          localStorage.removeItem("access_token");
-          localStorage.removeItem("refresh_token");
-          delete api.defaults.headers.common["Authorization"];
-
-          // Let the component handle the authentication error
-          return Promise.reject(new Error("AUTHENTICATION_REQUIRED"));
-        }
-      } else {
-        console.warn("No refresh token available");
-        // No refresh token available
-        localStorage.removeItem("access_token");
-        localStorage.removeItem("refresh_token");
-        delete api.defaults.headers.common["Authorization"];
-        return Promise.reject(new Error("AUTHENTICATION_REQUIRED"));
-      }
-    }
-
-    return Promise.reject(error);
-  }
+  (response) => response,
+  (error) => Promise.reject(error)
 );
 
 // API Endpoints configuration

@@ -121,7 +121,7 @@ const UserList = ({ userType }) => {
   const fetchUsers = async () => {
     setLoading(true);
     setUsers([]);
-  const params = `search=${search}&limit=${rowsPerPage}&page=${page + 1}`;
+    const params = `search=${search}&limit=${rowsPerPage}&page=${page + 1}`;
     let url;
     if (userType === "instructor") {
       url = endpoints.user.listInstructors(params);
@@ -132,11 +132,18 @@ const UserList = ({ userType }) => {
     } else {
       url = endpoints.user.list + (params ? `?${params}` : '');
     }
-    const res = await api.get(url);
-  // Always use DRF pagination format: results/count
-  setUsers(Array.isArray(res.data.results) ? res.data.results : []);
-  setTotal(typeof res.data.count === 'number' ? res.data.count : 0);
-    setLoading(false);
+    try {
+      const res = await api.get(url);
+      // Always use DRF pagination format: results/count
+      setUsers(Array.isArray(res.data.results) ? res.data.results : []);
+      setTotal(typeof res.data.count === 'number' ? res.data.count : 0);
+    } catch (err) {
+      console.error('Failed to fetch users:', err);
+      setUsers([]);
+      setTotal(0);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -195,200 +202,7 @@ const UserList = ({ userType }) => {
                     <TableCell sx={{ width: '10%' }}>Status</TableCell>
                     {!isSmallScreen && <TableCell sx={{ width: '10%' }}>Created At</TableCell>}
                     <TableCell align="right" sx={{ width: '20%' }}>Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {users.map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell sx={{ width: '10%' }}><Avatar src={user.avatar} alt={user.username} /></TableCell>
-                      <TableCell sx={{ width: '15%' }}>{user.username}</TableCell>
-                      <TableCell sx={{ width: '20%' }}>{user.email}</TableCell>
-                      {!isSmallScreen && <TableCell sx={{ width: '15%' }}>{user.phone}</TableCell>}
-                      <TableCell sx={{ width: '10%' }}>
-                        <Switch
-                          checked={user.is_active}
-                          onChange={() => handleToggleActive(user)}
-                          color={user.is_active ? "success" : "default"}
-                        />
-                      </TableCell>
-                      {!isSmallScreen && <TableCell sx={{ width: '15%' }}>{new Date(user.created_at).toLocaleDateString()}</TableCell>}
-                      <TableCell align="right" sx={{ width: '15%' }}>
-                        <Tooltip title="View">
-                          <IconButton color="primary" onClick={() => handleOpenModal('view', user)}>
-                            <VisibilityIcon />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Edit">
-                          <IconButton color="secondary" onClick={() => handleOpenModal('edit', user)}>
-                            <EditIcon />
-                          </IconButton>
-                        </Tooltip>
-        {/* Modal cho View, Edit, Add User */}
-        <Dialog open={modalOpen} onClose={handleCloseModal} maxWidth="sm" fullWidth>
-          <DialogTitle>
-            {modalType === 'view' && 'Xem thông tin người dùng'}
-            {modalType === 'edit' && 'Chỉnh sửa người dùng'}
-            {modalType === 'add' && (userType === 'all' ? 'Thêm người dùng' : userType === 'instructor' ? 'Thêm giảng viên' : userType ==='learner' ? 'Thêm học viên' : 'Thêm trung tâm')}
-          </DialogTitle>
-          <DialogContent dividers>
-            {modalType === 'view' && selectedUser && (
-              <div>
-                <Avatar src={selectedUser.avatar} alt={selectedUser.username} sx={{ width: 64, height: 64, mb: 2 }} />
-                <div><b>Username:</b> {selectedUser.username}</div>
-                <div><b>Email:</b> {selectedUser.email}</div>
-                <div><b>Phone:</b> {selectedUser.phone}</div>
-                <div><b>Status:</b> {selectedUser.is_active ? 'Active' : 'Inactive'}</div>
-                <div><b>Role:</b> {selectedUser.role}</div>
-                <div><b>Created At:</b> {new Date(selectedUser.created_at).toLocaleString()}</div>
-              </div>
-            )}
-            {modalType === 'edit' && selectedUser && (
-              <form onSubmit={e => { e.preventDefault(); handleEditUser(); }}>
-                <TextField
-                  margin="normal"
-                  label="Username"
-                  name="username"
-                  value={formData.username}
-                  onChange={handleFormChange}
-                  fullWidth
-                  required
-                />
-                <TextField
-                  margin="normal"
-                  label="Email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleFormChange}
-                  fullWidth
-                  required
-                />
-                <TextField
-                  margin="normal"
-                  label="Họ và tên"
-                  name="full_name"
-                  value={formData.full_name}
-                  onChange={handleFormChange}
-                  fullWidth
-                />
-                <TextField
-                  margin="normal"
-                  label="Phone"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleFormChange}
-                  fullWidth
-                />
-                <FormControl margin="normal" fullWidth>
-                  <InputLabel id="role-label">Role</InputLabel>
-                  <Select
-                    labelId="role-label"
-                    name="role"
-                    value={formData.role}
-                    label="Role"
-                    onChange={handleFormChange}
-                  >
-                    <MenuItem value="admin">Admin</MenuItem>
-                    <MenuItem value="instructor">Instructor</MenuItem>
-                    <MenuItem value="learner">Learner</MenuItem>
-                    <MenuItem value="center">Center</MenuItem>
-                  </Select>
-                </FormControl>
-              </form>
-            )}
-            {modalType === 'add' && (
-              <form onSubmit={e => { e.preventDefault(); handleAddUser(); }}>
-                <TextField
-                  margin="normal"
-                  label="Username"
-                  name="username"
-                  value={formData.username}
-                  onChange={handleFormChange}
-                  fullWidth
-                  required
-                />
-                <TextField
-                  margin="normal"
-                  label="Email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleFormChange}
-                  fullWidth
-                  required
-                />
-                <TextField
-                  margin="normal"
-                  label="Họ và tên"
-                  name="full_name"
-                  value={formData.full_name}
-                  onChange={handleFormChange}
-                  fullWidth
-                />
-                <TextField
-                  margin="normal"
-                  label="Phone"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleFormChange}
-                  fullWidth
-                />
-                <FormControl margin="normal" fullWidth>
-                  <InputLabel id="role-label">Role</InputLabel>
-                  <Select
-                    labelId="role-label"
-                    name="role"
-                    value={formData.role}
-                    label="Role"
-                    onChange={handleFormChange}
-                  >
-                    <MenuItem value="admin">Admin</MenuItem>
-                    <MenuItem value="instructor">Instructor</MenuItem>
-                    <MenuItem value="learner">Learner</MenuItem>
-                    <MenuItem value="center">Center</MenuItem>
-                  </Select>
-                </FormControl>
-                <TextField
-                  margin="normal"
-                  label="Password"
-                  name="password"
-                  type="password"
-                  value={formData.password}
-                  onChange={handleFormChange}
-                  fullWidth
-                  required
-                />
-              </form>
-            )}
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCloseModal}>Đóng</Button>
-            {modalType === 'edit' && (
-              <Button onClick={handleEditUser} variant="contained" color="primary">Lưu</Button>
-            )}
-            {modalType === 'add' && (
-              <Button onClick={handleAddUser} variant="contained" color="primary">Tạo mới</Button>
-            )}
-          </DialogActions>
-        {/* Snackbar thông báo */}
-        <Snackbar
-          open={snackbar.open}
-          autoHideDuration={3000}
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-        >
-          <Alert severity={snackbar.severity} sx={{ width: '100%' }}>
-            {snackbar.message}
-          </Alert>
-        </Snackbar>
-        </Dialog>
-                        <Tooltip title={user.is_active ? "Deactivate" : "Activate"}>
-                          <IconButton color={user.is_active ? "error" : "success"} onClick={() => handleToggleActive(user)}>
-                            {user.is_active ? <BlockIcon /> : <CheckCircleIcon />}
-                          </IconButton>
-                        </Tooltip>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
+                  </TableRow>          </TableBody>
               </Table>
             </TableContainer>
           </div>
@@ -402,8 +216,85 @@ const UserList = ({ userType }) => {
           onRowsPerPageChange={handleChangeRowsPerPage}
         />
       </Paper>
-    </Container>   
 
+      {/* Modal for View, Edit, Add User — rendered ONCE outside the table map loop */}
+      <Dialog open={modalOpen} onClose={handleCloseModal} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {modalType === 'view' && 'Xem thông tin người dùng'}
+          {modalType === 'edit' && 'Chỉnh sửa người dùng'}
+          {modalType === 'add' && (userType === 'all' ? 'Thêm người dùng' : userType === 'instructor' ? 'Thêm giảng viên' : userType ==='learner' ? 'Thêm học viên' : 'Thêm trung tâm')}
+        </DialogTitle>
+        <DialogContent dividers>
+          {modalType === 'view' && selectedUser && (
+            <div>
+              <Avatar src={selectedUser.avatar} alt={selectedUser.username} sx={{ width: 64, height: 64, mb: 2 }} />
+              <div><b>Username:</b> {selectedUser.username}</div>
+              <div><b>Email:</b> {selectedUser.email}</div>
+              <div><b>Phone:</b> {selectedUser.phone}</div>
+              <div><b>Status:</b> {selectedUser.is_active ? 'Active' : 'Inactive'}</div>
+              <div><b>Role:</b> {selectedUser.role}</div>
+              <div><b>Created At:</b> {new Date(selectedUser.created_at).toLocaleString()}</div>
+            </div>
+          )}
+          {modalType === 'edit' && selectedUser && (
+            <form onSubmit={e => { e.preventDefault(); handleEditUser(); }}>
+              <TextField margin="normal" label="Username" name="username" value={formData.username} onChange={handleFormChange} fullWidth required />
+              <TextField margin="normal" label="Email" name="email" value={formData.email} onChange={handleFormChange} fullWidth required />
+              <TextField margin="normal" label="Họ và tên" name="full_name" value={formData.full_name} onChange={handleFormChange} fullWidth />
+              <TextField margin="normal" label="Phone" name="phone" value={formData.phone} onChange={handleFormChange} fullWidth />
+              <FormControl margin="normal" fullWidth>
+                <InputLabel id="role-label-edit">Role</InputLabel>
+                <Select labelId="role-label-edit" name="role" value={formData.role} label="Role" onChange={handleFormChange}>
+                  <MenuItem value="admin">Admin</MenuItem>
+                  <MenuItem value="instructor">Instructor</MenuItem>
+                  <MenuItem value="learner">Learner</MenuItem>
+                  <MenuItem value="center">Center</MenuItem>
+                </Select>
+              </FormControl>
+            </form>
+          )}
+          {modalType === 'add' && (
+            <form onSubmit={e => { e.preventDefault(); handleAddUser(); }}>
+              <TextField margin="normal" label="Username" name="username" value={formData.username} onChange={handleFormChange} fullWidth required />
+              <TextField margin="normal" label="Email" name="email" value={formData.email} onChange={handleFormChange} fullWidth required />
+              <TextField margin="normal" label="Họ và tên" name="full_name" value={formData.full_name} onChange={handleFormChange} fullWidth />
+              <TextField margin="normal" label="Phone" name="phone" value={formData.phone} onChange={handleFormChange} fullWidth />
+              <FormControl margin="normal" fullWidth>
+                <InputLabel id="role-label-add">Role</InputLabel>
+                <Select labelId="role-label-add" name="role" value={formData.role} label="Role" onChange={handleFormChange}>
+                  <MenuItem value="admin">Admin</MenuItem>
+                  <MenuItem value="instructor">Instructor</MenuItem>
+                  <MenuItem value="learner">Learner</MenuItem>
+                  <MenuItem value="center">Center</MenuItem>
+                </Select>
+              </FormControl>
+              <TextField margin="normal" label="Password" name="password" type="password" value={formData.password} onChange={handleFormChange} fullWidth required />
+            </form>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseModal}>Đóng</Button>
+          {modalType === 'edit' && (
+            <Button onClick={handleEditUser} variant="contained" color="primary">Lưu</Button>
+          )}
+          {modalType === 'add' && (
+            <Button onClick={handleAddUser} variant="contained" color="primary">Tạo mới</Button>
+          )}
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar — rendered once globally, not inside the row map */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={3000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert severity={snackbar.severity} sx={{ width: '100%' }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+    </Container>
   );
 };
 

@@ -40,11 +40,13 @@ function useSocialAuthToken() {
     if (access && refresh) {
       localStorage.setItem("access_token", access);
       localStorage.setItem("refresh_token", refresh);
-      // Xóa token khỏi URL
+      // Immediately strip tokens from URL before React Router navigates,
+      // preventing tokens from persisting in browser history or server logs.
+      window.history.replaceState({}, document.title, window.location.pathname);
       navigate("/", { replace: true });
-      // Có thể gọi hàm loadUserInfo() hoặc setAuthState(true) ở đây nếu có
+      window.dispatchEvent(new Event('authChanged'));
     }
-  }, [location, navigate]);
+  }, [location.search, navigate]);
 }
 
 const AppContent = () => {
